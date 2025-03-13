@@ -1,4 +1,10 @@
 fastapi==0.115.11
 chromadb==0.6.3
 langchain==0.3.20
+langchain-community==0.3.19
+langchain-chroma
+langchain-huggingface==0.1.2
+langchain-openai==0.3.8
+langchain-groq==0.2.5
+langgraph==0.3.8
 supabase==2.13.0

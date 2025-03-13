@@ -2,3 +2,6 @@
 * text=auto
 .env
 .env.local
+
+# virtualenv
+.venv
