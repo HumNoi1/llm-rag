@@ -1,7 +1,7 @@
 # backend/app/routers/evaluation.py
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
-from .services.llm_service import LLMEvaluationService
+from ..services.llm_service import LLMEvaluationService
 from ..services.rag_service import AnswerEvaluationService
 from ..models.schemas import EvaluationRequest, EvaluationResponse
 
