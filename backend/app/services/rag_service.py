@@ -1,7 +1,7 @@
 # backend/app/services/rag_service.py
 import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from .model_service import ModelService
 from ..config import CHROMA_DB_DIRECTORY
@@ -62,25 +62,17 @@ class AnswerEvaluationService:
         
         # ใช้ ChromaDB เพื่อเก็บข้อมูล
         # ถ้า collection มีอยู่แล้ว ให้ลบแล้วสร้างใหม่
-        db = Chroma(
-            persist_directory=self.persist_directory,
-            embedding_function=self.embeddings,
-            collection_name=collection_name
-        )
-        
-        # ลบข้อมูลเดิมถ้ามี
-        db.delete_collection()
-        
-        # สร้าง collection ใหม่
         db = Chroma.from_documents(
             documents=splits,
             embedding=self.embeddings,
             persist_directory=self.persist_directory,
-            collection_name=collection_name
+            collection_name=collection_name,
         )
         
-        # บันทึกข้อมูลลงดิสก์
-        db.persist()
+        #ตรวจสอบก่อนว่ามีเมธอด persist หรือไม่
+        if hasattr(db, 'persist'):
+            # เรียกใช้เมธอด persist ถ้ามี
+            db.persist()
         
         return len(splits)
     

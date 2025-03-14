@@ -1,6 +1,6 @@
 # backend/app/services/model_service.py
 from langchain_groq import ChatGroq
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from typing import List, Dict, Any
 from ..config import GROQ_API_KEY, GROQ_MODEL_NAME, EMBEDDING_MODEL_NAME
