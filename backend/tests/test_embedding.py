@@ -1,7 +1,7 @@
 # backend/tests/test_embeddings.py
 import os
 from dotenv import load_dotenv
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 # โหลดตัวแปรสภาพแวดล้อมจาก .env
 load_dotenv()
