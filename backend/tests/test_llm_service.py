@@ -2,8 +2,8 @@
 import os
 import shutil
 from dotenv import load_dotenv
-from backend.app.services.rag_service import AnswerEvaluationService
-from backend.app.services.llm_service import LLMEvaluationService
+from app.services.rag_service import AnswerEvaluationService
+from app.services.llm_service import LLMEvaluationService
 
 # โหลดตัวแปรสภาพแวดล้อมจาก .env
 load_dotenv()

@@ -1,12 +1,12 @@
 # backend/tests/test_embeddings.py
 import os
 from dotenv import load_dotenv
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 
 # โหลดตัวแปรสภาพแวดล้อมจาก .env
 load_dotenv()
 
-EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-m3")
 
 def test_embeddings():
     """ทดสอบการทำงานของ Hugging Face Embeddings"""

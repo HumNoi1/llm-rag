@@ -20,7 +20,7 @@ def test_groq_connection():
     )
     
     # ทดสอบส่งคำถามง่ายๆ
-    response = llm.invoke("สวัสดี ช่วยอธิบายว่า Software engineering คืออะไร")
+    response = llm.invoke("อะไรคือแนวคิดของ SOLID ในการออกแบบซอฟต์แวร์?")
     
     # พิมพ์ผลลัพธ์
     print("Groq Response:")

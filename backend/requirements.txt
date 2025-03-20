@@ -8,3 +8,4 @@ langchain-openai==0.3.8
 langchain-groq==0.2.5
 langgraph==0.3.8
 supabase==2.13.0
+PyMuPDF==1.25.4

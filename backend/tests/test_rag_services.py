@@ -5,7 +5,7 @@ import time
 import gc
 import uuid
 from dotenv import load_dotenv
-from backend.app.services.rag_service import AnswerEvaluationService
+from app.services.rag_service import AnswerEvaluationService
 
 # โหลดตัวแปรสภาพแวดล้อมจาก .env
 load_dotenv()
