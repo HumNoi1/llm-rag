@@ -25,14 +25,15 @@ class LLMEvaluationService:
         # สร้าง prompt เอง แทนการใช้จาก hub เนื่องจากเราต้องการปรับให้เหมาะกับภาษาไทย
         self.prompt_template = """
         คุณเป็นผู้ช่วยอาจารย์ในการตรวจข้อสอบอัตนัย โปรดประเมินคำตอบของนักศึกษาโดยเปรียบเทียบกับเฉลยที่ให้มา
+        (You are a teacher's assistant checking essay exams. Please evaluate the student's answer by comparing it to the provided answer key.)
         
-        ## คำถาม:
+        ## คำถาม (Question):
         {question}
         
-        ## คำตอบของนักศึกษา:
+        ## คำตอบของนักศึกษา (Student's Answer):
         {student_answer}
         
-        ## เนื้อหาจากเฉลย:
+        ## เนื้อหาจากเฉลย (Content from Answer Key):
         {answer_key}
         
         โปรดประเมินคำตอบโดยให้คะแนนระหว่าง 0 ถึง 10 พร้อมคำอธิบายโดยละเอียด
@@ -41,6 +42,8 @@ class LLMEvaluationService:
         1. จุดเด่นของคำตอบ
         2. จุดที่ขาดหรือไม่ถูกต้อง
         3. ข้อเสนอแนะในการปรับปรุง
+        
+        ถ้าคำตอบมีการใช้ทั้งภาษาไทยและภาษาอังกฤษ ให้ประเมินความถูกต้องของทั้งสองภาษา
         """
         
         self.prompt = PromptTemplate(

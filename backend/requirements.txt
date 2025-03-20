@@ -9,3 +9,5 @@ langchain-groq==0.2.5
 langgraph==0.3.8
 supabase==2.13.0
 PyMuPDF==1.25.4
+sentence-transformers==3.4.1
+pythainlp==5.1.0
