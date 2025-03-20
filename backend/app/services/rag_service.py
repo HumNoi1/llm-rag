@@ -1,10 +1,11 @@
 # backend/app/services/rag_service.py
 import os
 import tempfile
+import fitz  # PyMuPDF
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_community.document_loaders import TextLoader
 from .model_service import ModelService
 from ..config import CHROMA_DB_DIRECTORY
 
@@ -32,6 +33,31 @@ class AnswerEvaluationService:
             separators=["\n\n", "\n", " ", "", ".", "?", "!", ":", ";", "—", "–"]
         )
         
+    def extract_text_from_pdf(self, file_path):
+        """
+        สกัดข้อความจากไฟล์ PDF โดยใช้ PyMuPDF (fitz)
+        
+        Args:
+            file_path: พาธของไฟล์ PDF
+            
+        Returns:
+            ข้อความที่สกัดได้จาก PDF
+        """
+        text = ""
+        
+        # เปิดเอกสาร PDF
+        doc = fitz.open(file_path)
+        
+        # สกัดข้อความจากทุกหน้า
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            text += page.get_text() + "\n\n"
+            
+        # ปิดเอกสาร
+        doc.close()
+        
+        return text
+        
     def load_document_from_bytes(self, file_content, file_name, metadata=None):
         """
         โหลดเอกสารจากข้อมูลไบต์ของไฟล์
@@ -55,14 +81,17 @@ class AnswerEvaluationService:
         try:
             # ตรวจสอบประเภทไฟล์
             if file_name.lower().endswith(".pdf"):
-                # โหลดเอกสารด้วย PyPDFLoader
-                loader = PyPDFLoader(temp_path)
-                documents = loader.load()
+                # สกัดข้อความจาก PDF ด้วย PyMuPDF
+                text_content = self.extract_text_from_pdf(temp_path)
                 
-                # เพิ่มเมตาดาต้าให้กับทุกเอกสาร
-                for doc in documents:
-                    doc.metadata.update(metadata)
-                    
+                # สร้างเอกสารเพียงอันเดียวที่มีข้อความทั้งหมด
+                documents = [
+                    Document(
+                        page_content=text_content,
+                        metadata={**metadata, "source": file_name}
+                    )
+                ]
+                
                 return documents
             else:
                 # สำหรับไฟล์ข้อความปกติ
@@ -78,7 +107,7 @@ class AnswerEvaluationService:
             # ลบไฟล์ชั่วคราว
             os.unlink(temp_path)
         
-    def index_answer_key(self, answer_key_content, subject_id, question_id):
+    def index_answer_key(self, answer_key_content, subject_id, question_id, file_name=None):
         """
         เก็บเอกสารเฉลยในฐานข้อมูล ChromaDB
         
@@ -91,7 +120,7 @@ class AnswerEvaluationService:
         Returns:
             จำนวนชิ้นส่วนที่แบ่งได้
         """
-        # สร้างmetadata
+        # สร้าง metadata
         metadata = {
             "type": "answer_key",
             "subject_id": subject_id,
@@ -114,13 +143,13 @@ class AnswerEvaluationService:
                 )
             ]
         
-        # แบ่งเอกสารเป็นส่วนย่อย
+        # แบ่งเอกสารเป็นส่วนย่อย - Text Splitting
         splits = self.text_splitter.split_documents(documents)
         
         # สร้าง collection ใหม่สำหรับคำถามนี้
         collection_name = f"{subject_id}_{question_id}"
         
-        # ใช้ ChromaDB เก็บข้อมูล
+        # ใช้ ChromaDB เก็บข้อมูล - Embedding และบันทึกลง Chroma
         db = Chroma.from_documents(
             documents=splits,
             embedding=self.embeddings,

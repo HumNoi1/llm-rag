@@ -3,10 +3,10 @@ import os
 import tempfile
 import requests
 import pytest
-from reportlab.pdfgen import canvas
+import fitz  # PyMuPDF
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
-from backend.app.main import app
+from app.main import app
 
 # โหลดตัวแปรสภาพแวดล้อม
 load_dotenv()
@@ -19,18 +19,22 @@ def create_test_pdf(content):
     with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
         pdf_path = temp_file.name
     
-    # สร้าง PDF โดยใช้ reportlab
-    pdf = canvas.Canvas(pdf_path)
-    y_position = 800  # เริ่มต้นจากด้านบนของหน้า
+    # สร้าง PDF โดยใช้ PyMuPDF (fitz)
+    doc = fitz.open()
+    page = doc.new_page()
     
-    # แบ่งเนื้อหาเป็นบรรทัด
-    lines = content.split('\n')
-    for line in lines:
-        if line.strip():  # ข้ามบรรทัดว่าง
-            pdf.drawString(50, y_position, line)
-            y_position -= 20  # เลื่อนลงสำหรับบรรทัดถัดไป
+    # เพิ่มข้อความลงในหน้า
+    font_size = 11
+    y_position = 50
+    for line in content.split('\n'):
+        if line.strip():
+            page.insert_text((50, y_position), line, fontsize=font_size)
+            y_position += font_size + 5
     
-    pdf.save()
+    # บันทึกไฟล์ PDF
+    doc.save(pdf_path)
+    doc.close()
+    
     return pdf_path
 
 def test_upload_pdf_answer_key():
