@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
+
+
 export default function RegisterPage() {
   // สร้าง state สำหรับเก็บข้อมูลฟอร์ม
   const [formData, setFormData] = useState({
@@ -13,6 +15,7 @@ export default function RegisterPage() {
     confirmPassword: '',
     academicPosition: '',
   });
+  
   
   // สร้าง state สำหรับการแสดงข้อความผิดพลาด
   const [errors, setErrors] = useState({});
@@ -83,50 +86,38 @@ export default function RegisterPage() {
   };
 
   // ฟังก์ชันสำหรับส่งข้อมูลลงทะเบียน
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    try {
-      // ในอนาคตจะส่งข้อมูลไปยัง API
-      // const response = await fetch('/api/register', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(formData),
-      // });
-      
-      // จำลองการส่งข้อมูลสำเร็จ
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // if (!response.ok) {
-      //   throw new Error('ไม่สามารถลงทะเบียนได้');
-      // }
-      
-      setSubmitSuccess(true);
-      // รีเซ็ตฟอร์ม
-      setFormData({
-        fullName: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        academicPosition: '',
-      });
-      
-    } catch (error) {
-      console.error('Registration error:', error);
-      setErrors({ submit: 'เกิดข้อผิดพลาดในการลงทะเบียน กรุณาลองใหม่อีกครั้ง' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // frontend/src/app/register/page.jsx - ในส่วนของ handleSubmit function
 
+// src/app/register/page.jsx - ปรับปรุงฟังก์ชัน handleSubmit
+
+const handleSubmit = (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    return;
+  }
+  
+  setIsSubmitting(true);
+  
+  // ใช้ setTimeout เพื่อจำลองการทำงานที่ต้องใช้เวลา
+  setTimeout(() => {
+    console.log('Form data:', formData);
+    
+    // แสดงข้อความสำเร็จ
+    setSubmitSuccess(true);
+    
+    // รีเซ็ตฟอร์ม
+    setFormData({
+      fullName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      academicPosition: '',
+    });
+    
+    setIsSubmitting(false);
+  }, 1500);
+};
   // แสดงข้อความสำเร็จหลังจากลงทะเบียน
   if (submitSuccess) {
     return (
@@ -138,7 +129,10 @@ export default function RegisterPage() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold mb-4 text-[#333333]">ลงทะเบียนสำเร็จ</h2>
-          <p className="mb-6 text-gray-600">บัญชีของคุณได้ถูกสร้างเรียบร้อยแล้ว สามารถเข้าสู่ระบบได้ทันที</p>
+          <p className="mb-3 text-gray-600">บัญชีของคุณได้ถูกสร้างเรียบร้อยแล้ว</p>
+          <p className="mb-6 text-gray-600 font-medium">
+            <strong>กรุณาตรวจสอบอีเมลของคุณ</strong> เพื่อคลิกลิงก์ยืนยันการลงทะเบียน
+          </p>
           <Link
             href="/login"
             className="block w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300"
