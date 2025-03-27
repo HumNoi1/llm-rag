@@ -172,9 +172,9 @@ class AnswerEvaluationService:
             collection_name=collection_name
         )
     
-    def retrieve_relevent_context(self, query, subject_id, question_id, k=4):
+    def retrieve_relevant_context(self, query, subject_id, question_id, k=4):
         """
-        ค้นหาข้อมูลที่เกี่ยวข้องจากเฉลยด้วย sematic search พื้นฐาน
+        ค้นหาข้อมูลที่เกี่ยวข้องจากเฉลยด้วย semantic search พื้นฐาน
         
         Args:
             query: คำถามหรือคำตอบที่ต้องการค้นหาบริบทที่เกี่ยวข้อง
@@ -194,14 +194,20 @@ class AnswerEvaluationService:
                 ]
             }
             
-            # ใช้การค้นหาแบบ similarity search basic
-            vector_store = self.get_vector_store_forr_question(subject_id, question_id)
+            # หรือใช้รูปแบบนี้ (ขึ้นอยู่กับเวอร์ชันของ ChromaDB)
+            # metadata_filter = {"$eq": {"subject_id": subject_id, "question_id": question_id}}
+            
+            # ใช้การค้นหาแบบ similarity search พื้นฐาน
+            vector_store = self.get_vector_store_for_question(subject_id, question_id)
+            
+            # ทดลองค้นหาโดยไม่ใช้ filter ก่อน ถ้า filter ทำให้เกิดปัญหา
+            # return vector_store.similarity_search(query, k=k)
             
             # ค้นหาด้วย filter ที่ถูกต้อง
-            return vector_store.similarity_search(query, k=k, metadata_filter=metadata_filter)
+            return vector_store.similarity_search(query, k=k, filter=metadata_filter)
         
         except Exception as e:
-            print(f"Error in retrieve_relevent_context: {str(e)}")
+            print(f"Error in retrieve_relevant_context: {str(e)}")
             
             # ลองค้นหาอีกครั้งโดยไม่ใช้ filter ถ้ามีข้อผิดพลาด
             try:
