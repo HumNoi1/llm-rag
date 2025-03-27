@@ -20,7 +20,7 @@ class ModelService:
         )
         
         # สร้าง Embeddings instance โดยใช้โมเดลจาก Hugging Face
-        # ในที่นี้เราเลือกใช้ multilingual-e5-large ซึ่งรองรับภาษาไทยด้วย
+        # ในที่นี้เราเลือกใช้ sentence-transformers/all-MiniLM-L6-v2 ซึ่งรองรับภาษาไทยด้วย
         self.embeddings = HuggingFaceEmbeddings(
             model_name=EMBEDDING_MODEL_NAME,
             model_kwargs={"device": "cpu"},  # เปลี่ยนเป็น "cuda" ถ้ามี GPU
