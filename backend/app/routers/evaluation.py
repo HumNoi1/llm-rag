@@ -14,31 +14,35 @@ async def upload_answer_key(
     question_id: str = Form(...),
     rag_service: AnswerEvaluationService = Depends()
 ):
-    """อัปโหลดไฟล์เฉลยของอาจารย์"""
-    content = await file.read()
-    
+    """อัปโหลดไฟล์เฉลยของอาจารย์ (รองรับเฉพาะไฟล์ PDF)"""
     # ตรวจสอบนามสกุลของไฟล์
     file_name = file.filename
     
+    # รองรับเฉพาะไฟล์ PDF เท่านั้น
+    if not file_name.lower().endswith('.pdf'):
+        raise HTTPException(
+            status_code=400,
+            detail="รองรับเฉพาะไฟล์ PDF เท่านั้น"
+        )
+    
+    content = await file.read()
+    
     try:
         # ส่งทั้งเนื้อหาไฟล์และชื่อไฟล์ไปยัง index_answer_key
-         chunks = rag_service.index_answer_key(
-             answer_key_content=content,
-             subject_id=subject_id,
-             question_id=question_id,
-             file_name=file_name
-         )
+        chunks = rag_service.index_answer_key(
+            answer_key_content=content,
+            subject_id=subject_id,
+            question_id=question_id,
+            file_name=file_name
+        )
          
-         # ระบุประเภทไฟล์ในข้อความตอบกลับ
-         file_type = "PDF" if file_name.lower().endswith(".pdf") else "Text"
-         
-         return JSONResponse({
-             "message": f"{file_type} answer key indexed successfully with {chunks} chunks",
-             "file_name": file_name,
-             "subject_id": subject_id,
-             "question_id": question_id,
-             "file_type": file_type,
-             "chunks": chunks
+        return JSONResponse({
+            "message": f"PDF answer key indexed successfully with {chunks} chunks",
+            "file_name": file_name,
+            "subject_id": subject_id,
+            "question_id": question_id,
+            "file_type": "PDF",
+            "chunks": chunks
         })
     except Exception as e:
         # จัดการข้อผิดพลาด
