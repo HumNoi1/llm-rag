@@ -1,4 +1,4 @@
-// frontend/src/app/Ui/page.jsx
+// frontend/src/app/dashboard/page.jsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -11,12 +11,6 @@ export default function Dashboard() {
     { id: 1, name: 'วิศวกรรมซอฟต์แวร์', code: 'SW101', term: '1/2566', students: 45 },
     { id: 2, name: 'การวิเคราะห์และออกแบบเชิงวัตถุ', code: 'SW201', term: '1/2566', students: 38 },
     { id: 3, name: 'การพัฒนาเว็บแอปพลิเคชัน', code: 'SW301', term: '1/2566', students: 42 },
-  ]);
-
-  const [recentActivities, setRecentActivities] = useState([
-    { id: 1, action: 'ตรวจข้อสอบ', subject: 'วิศวกรรมซอฟต์แวร์', date: '15 มี.ค. 2025', status: 'เสร็จสิ้น' },
-    { id: 2, action: 'อัปโหลดเฉลย', subject: 'การวิเคราะห์และออกแบบเชิงวัตถุ', date: '14 มี.ค. 2025', status: 'เสร็จสิ้น' },
-    { id: 3, action: 'สร้างคลาส', subject: 'การพัฒนาเว็บแอปพลิเคชัน', date: '10 มี.ค. 2025', status: 'เสร็จสิ้น' },
   ]);
 
   // จำลองการดึงข้อมูลเมื่อโหลดหน้า
@@ -75,11 +69,11 @@ export default function Dashboard() {
           </div>
           
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4 text-black ">งานที่ต้องตรวจ</h2>
+            <h2 className="text-xl font-semibold mb-4 text-black">งานที่ต้องตรวจ</h2>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-3xl font-bold text-black">28</p>
-                <p className="text-gray-600 ">ข้อสอบที่รอการตรวจ</p>
+                <p className="text-gray-600">ข้อสอบที่รอการตรวจ</p>
               </div>
               <div className="bg-purple-100 p-3 rounded-full">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,7 +85,7 @@ export default function Dashboard() {
         </div>
 
         {/* ส่วนคลาสเรียน */}
-        <div className="mb-8">
+        <div>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-black">รายวิชาของฉัน</h2>
             <Link href="/class/create" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
@@ -126,37 +120,6 @@ export default function Dashboard() {
                 <p className="mt-2 text-gray-600">เพิ่มรายวิชาใหม่</p>
               </div>
             </Link>
-          </div>
-        </div>
-
-        {/* ส่วนกิจกรรมล่าสุด */}
-        <div>
-          <h2 className="text-2xl font-bold mb-4">กิจกรรมล่าสุด</h2>
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <table className="min-w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กิจกรรม</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วิชา</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {recentActivities.map((activity) => (
-                  <tr key={activity.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">{activity.action}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{activity.subject}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{activity.date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        {activity.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
       </main>
