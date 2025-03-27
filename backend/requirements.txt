@@ -11,3 +11,5 @@ supabase==2.13.0
 PyMuPDF==1.25.4
 sentence-transformers==3.4.1
 pythainlp==5.1.0
+pandas==2.2.3
+matplotlib==3.10.1
