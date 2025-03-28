@@ -42,6 +42,13 @@ class RAGTester:
         # สร้าง ID ที่ไม่ซ้ำกันสำหรับการทดสอบ
         self.subject_id = f"TEST_{uuid.uuid4().hex[:8]}"
         
+        # ดึงข้อมูลชื่อโมเดลจาก config
+        from app.config import GROQ_MODEL_NAME, EMBEDDING_MODEL_NAME
+        self.model_info = {
+            "llm_model": GROQ_MODEL_NAME,
+            "embedding_model": EMBEDDING_MODEL_NAME
+        }
+        
         # ถ้าไม่ใช้ API ให้เตรียม service
         if not self.use_api:
             self.rag_service = AnswerEvaluationService()
@@ -1105,6 +1112,9 @@ class RAGTester:
             scores: คะแนนสรุป
         """
         try:
+            # สร้างข้อความแสงโมเดล
+            model_info_text = f"LLM: {self.model_info['llm_model']} | Embedding: {self.model_info['embedding_model']}"
+            
             # สร้างโฟลเดอร์สำหรับกราฟ
             graphs_dir = self.results_dir / "graphs"
             graphs_dir.mkdir(exist_ok=True)
@@ -1139,7 +1149,7 @@ class RAGTester:
             plt.ylim(0, 110)
             plt.xlabel('Test Categories')
             plt.ylabel('Score (out of 100)')
-            plt.title('RAG Performance by Category')
+            plt.title(f'RAG Performance by Category\n{model_info_text}')
             plt.xticks(rotation=15)
             plt.tight_layout()
             
@@ -1186,7 +1196,7 @@ class RAGTester:
             plt.yticks([0.2, 0.4, 0.6, 0.8, 1.0], ["20%", "40%", "60%", "80%", "100%"], color="grey", size=10)
             plt.ylim(0, 1)
             
-            plt.title("RAG Test Results", size=16)
+            plt.title(f"RAG Test Results\n{model_info_text}", size=16)
             
             # บันทึกกราฟ
             plt.savefig(graphs_dir / "radar_chart.png")
