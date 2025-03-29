@@ -26,8 +26,8 @@ class AnswerEvaluationService:
         
         self.persist_directory = persist_directory
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=100,
+            chunk_size=350,
+            chunk_overlap=150,
             length_function=len,
             add_start_index=True,
             # ลำดับความสำคัญของตัวคั่น
