@@ -1,0 +1,112 @@
+{
+  "test_id": "TEST_efe8574a",
+  "test_date": "2025-03-31_15-28-12",
+  "results": {
+    "retrieval_accuracy": {
+      "status": "success",
+      "avg_precision": 0.5,
+      "details": [
+        {
+          "query": "อธิบายขั้นตอนการทดสอบใน SDLC",
+          "precision": 1.0,
+          "found_keywords": 4,
+          "total_keywords": 4,
+          "evaluation": "<think>\nOkay, I need to evaluate the student's answer about the SDLC testing phases. The student wrote \"ไม่ทราบคำตอบ,\" which means they didn't know the answer. \n\nFirst, I'll look at the answer key. It outlines several stages like Project Planning, Deployment, Maintenance, and Testing, which includes Unit, Integration, System, and Acceptance Testing. \n\nThe student didn't provide any information, so there are no strengths to mention. The weaknesses are clear: they didn't answer and didn't attempt any part of the question. \n\nTo improve, the student should study the SDLC phases, especially the testing stages. They should practice explaining each phase in both Thai and English to ensure understanding and correct language use. Maybe next time, even if they're unsure, they can write what they remember to get partial points.\n</think>\n\nคะแนน: 0/10\n\n1. จุดเด่นของคำตอบ  \n   - ไม่มีจุดเด่นใดๆ ในคำตอบของนักศึกษา เนื่องจากนักศึกษาไม่ได้ให้คำตอบใดๆ ที่เกี่ยวข้องกับข้อสอบ\n\n2. จุดที่ขาดหรือไม่ถูกต้อง  \n   - นักศึกษาไม่ได้ให้คำตอบที่เกี่ยวข้องกับข้อสอบเลย  \n   - ไม่มีการอธิบายขั้นตอนการทดสอบใน SDLC  \n   - ไม่มีการกล่าวถึงขั้นตอนต่างๆ เช่น Project Planning, Deployment, Maintenance, Testing (Unit Testing, Integration Testing, System Testing, Acceptance Testing)  \n\n3. ข้อเสนอแนะในการปรับปรุง  \n   - ควรถูกสอนหรือทบทวนวัสดุเกี่ยวกับ SDLC และขั้นตอนการทดสอบ  \n   - ควรฝึกหัดเขียนคำตอบโดยอธิบายขั้นตอนการทดสอบใน SDLC  \n   - ควรให้ความสนใจกับการใช้ภาษาไทยและภาษาอังกฤษที่ถูกต้องในคำตอบ"
+        },
+        {
+          "query": "มีรูปแบบของ SDLC กี่แบบ และมีอะไรบ้าง",
+          "precision": 0.5,
+          "found_keywords": 4,
+          "total_keywords": 8,
+          "evaluation": "<think>\nOkay, I need to evaluate the student's answer about the SDLC models. The student wrote \"ไม่ทราบคำตอบ,\" which means they didn't know the answer. \n\nFirst, I'll look at the answer key provided. It seems the key lists several SDLC models like Waterfall and Spiral, and maybe others. The student didn't provide any models, so they missed all the points here.\n\nI should check if the student used both Thai and English correctly. Since their answer is only in Thai and it's just a short phrase, there's nothing to evaluate in terms of bilingual correctness.\n\nNow, for the evaluation structure: strengths, weaknesses, and suggestions. The student's strength is honesty, but the weaknesses are lack of content and understanding. I should suggest they study the SDLC models and practice more.\n\nFinally, I'll assign a score. Since they didn't answer, it's a 0/10. But I'll make sure to explain it clearly so they know what to improve.\n</think>\n\nคะแนน: 0/10\n\n1. จุดเด่นของคำตอบ  \n   - นักศึกษาแสดงความซื่อสัตย์โดยการระบุว่าไม่ทราบคำตอบ\n\n2. จุดที่ขาดหรือไม่ถูกต้อง  \n   - ไม่มีการกล่าวถึงรูปแบบ SDLC ใดๆ ทั้งสิ้น\n   - ไม่มีการอธิบายหรือให้ข้อมูลเกี่ยวกับ SDLC แม้แต่น้อย\n   - ไม่มีการใช้ภาษาอังกฤษหรือไทยที่ไม่ถูกต้องในคำตอบ\n\n3. ข้อเสนอแนะในการปรับปรุง  \n   - ควรศึกษาเกี่ยวกับรูปแบบ SDLC ที่นิยมใช้ เช่น Waterfall Model, Spiral Model, V-Model, Agile Model, Iterative Model, Incremental Model เป็นต้น\n   - ควรฝึกหัดในการอธิบายลักษณะของแต่ละรูปแบบ SDLC และข้อดีข้อเสีย\n   - ควรทบทวนวิธีการใช้ภาษาไทยและภาษาอังกฤษที่ถูกต้องในการเขียนคำตอบ"
+        },
+        {
+          "query": "ขั้นตอน Deployment ประกอบด้วยอะไรบ้าง",
+          "precision": 0.0,
+          "found_keywords": 0,
+          "total_keywords": 4,
+          "evaluation": "<think>\nOkay, I need to evaluate the student's answer about the Deployment phase. The student wrote \"ไม่ทราบคำตอบ,\" which means they didn't know the answer. \n\nLooking at the answer key, Deployment is part of the SDLC and includes several sub-steps like Integration Testing, System Testing, and Acceptance Testing. The student didn't provide any of these details.\n\nSince the student didn't answer, there are no strengths. The main weakness is the lack of any relevant information. To improve, the student should study the SDLC, especially the Deployment phase, and understand its components.\n</think>\n\nคะแนน: 0/10\n\n1. จุดเด่นของคำตอบ  \n   - ไม่มีจุดเด่นในคำตอบนี้\n\n2. จุดที่ขาดหรือไม่ถูกต้อง  \n   - นักเรียนไม่ได้ให้คำตอบใดๆ เกี่ยวกับขั้นตอน Deployment\n   - ไม่มีการกล่าวถึง Integration Testing, System Testing, Acceptance Testing หรือส่วนประกอบอื่นใดที่เกี่ยวข้องกับการ Deploy\n   - ไม่มีการอธิบายหรืออ้างอิงใดๆ เกี่ยวกับ SDLC (Software Development Life Cycle) ที่เกี่ยวข้องกับการ Deploy\n\n3. ข้อเสนอแนะในการปรับปรุง  \n   - ควรศึกษาเกี่ยวกับ SDLC (Software Development Life Cycle) โดยเฉพาะส่วนของ Deployment\n   - ควรทำความเข้าใจส่วนประกอบต่างๆ ของ Deployment เช่น Integration Testing, System Testing, Acceptance Testing\n   - ควรฝึกซ้อมหรือทบทวนวิธีการอธิบายขั้นตอนต่างๆ ใน SDLC โดยเฉพาะส่วนที่เกี่ยวข้องกับการ Deploy\n   - ควรฝึกฝนการเขียนคำตอบที่มีรายละเอียดและครอบคลุมหัวข้อที่ให้มา"
+        }
+      ]
+    },
+    "contextual_understanding": {
+      "status": "success",
+      "avg_context_accuracy": 0.6190476190476191,
+      "avg_score": 5.0,
+      "avg_processing_time": 15.230148474375406,
+      "details": [
+        {
+          "question": "อธิบายข้อแตกต่างระหว่างการทดสอบแบบกล่องดำและกล่องขาว",
+          "student_answer": "ผมคิดว่าทั้งสองแบบเป็นการทดสอบเหมือนกัน ไม่มีความแตกต่างกัน",
+          "evaluation": "<think>\nOkay, I need to evaluate the student's answer about the differences between black box and white box testing. The student wrote that they think both are the same with no differences. \n\nFirst, I'll look at the answer key. It mentions that black box testing focuses on inputs and outputs, using techniques like Boundary Value Analysis and Equivalence Partitioning. White box testing, on the other hand, involves looking at the internal structures, using Statement Coverage and Branch Coverage. \n\nThe student didn't mention any of these points. They didn't talk about inputs/outputs vs internal structures or the different techniques used. So, their answer is incorrect and lacks depth.\n\nI should give a low score, maybe 2/10, because they attempted to answer but didn't address the actual differences. They need to study the concepts more and provide specific examples next time.\n</think>\n\nคะแนน: 2/10\n\n1. จุดเด่นของคำตอบ  \n   - นักศึกษาได้แสดงความคิดเห็นเกี่ยวกับคำถาม โดยถือเป็นการมีส่วนร่วมในกระบวนการเรียนรู้\n\n2. จุดที่ขาดหรือไม่ถูกต้อง  \n   - คำตอบไม่ได้อธิบายข้อแตกต่างระหว่างการทดสอบแบบกล่องดำ (Black Box Testing) และกล่องขาว (White Box Testing) \n   - ไม่ได้กล่าวถึงเทคนิคหรือวิธีการทดสอบที่แตกต่างกัน เช่น Boundary Value Analysis, Equivalence Partitioning สำหรับ Black Box Testing และ Statement Coverage, Branch Coverage สำหรับ White Box Testing\n   - คำตอบไม่มีข้อมูลเชิงลึกหรือรายละเอียดที่สufficient ตามที่ให้ไว้ในเฉลย\n\n3. ข้อเสนอแนะในการปรับปรุง  \n   - ควรศึกษาและเข้าใจแนวคิดพื้นฐานของการทดสอบแบบกล่องดำและกล่องขาว\n   - อธิบายข้อแตกต่างที่ชัดเจนระหว่างทั้งสองแบบ เช่น การมุ่งเน้นในการทดสอบ (input/output vs internal structure) และเทคนิคที่ใช้\n   - ให้คำอธิบายที่มีรายละเอียดและความถูกต้องมากขึ้นในการตอบคำถามในอนาคต",
+          "score": 5.0,
+          "context_accuracy": 0.8571428571428571,
+          "processing_time": 15.596330642700195
+        },
+        {
+          "question": "ถ้าคุณต้องการทดสอบฟังก์ชันย่อย ควรใช้การทดสอบระดับใด",
+          "student_answer": "ควรใช้การทดสอบระบบ เพราะทำให้เห็นภาพรวมได้ดี",
+          "evaluation": "<think>\nOkay, I need to evaluate the student's answer about which testing level to use when testing a function. The student answered that system testing should be used because it provides a good overview. \n\nLooking at the answer key, unit testing is the correct approach for testing individual functions. It specifically mentions tools like JUnit, NUnit, and PyTest, which are unit testing frameworks. The student, however, mentioned system testing, which is a higher level and not suitable for isolated function testing.\n\nThe student's answer has a strength in recognizing the importance of overview in testing, but it's misapplied here. The weakness is the incorrect testing level and not mentioning unit testing tools. To improve, the student should focus on unit testing and its tools when discussing function testing.\n</think>\n\nคะแนน: 2/10\n\n1. จุดเด่นของคำตอบ  \n   - นักศึกษาได้แสดงความเข้าใจถึงความสำคัญของการทดสอบระบบ (System Testing) และสามารถอธิบายได้ว่าการทดสอบระดับนี้ช่วยให้เห็นภาพรวมของระบบได้ดี\n\n2. จุดที่ขาดหรือไม่ถูกต้อง  \n   - คำตอบไม่ถูกต้องตามเฉลยที่ให้มา เนื่องจากการทดสอบฟังก์ชันย่อย (Unit Testing) เป็นระดับการทดสอบที่เหมาะสมที่สุดสำหรับการทดสอบฟังก์ชันหรือหน่วยงานย่อยๆ ภายในระบบ  \n   - นักศึกษาไม่ได้กล่าวถึงเครื่องมือหรือเทคนิคที่เกี่ยวข้องกับการทดสอบระดับ Unit Testing เช่น JUnit, NUnit, PyTest ซึ่งถูกกล่าวถึงในเฉลย  \n   - การทดสอบระบบ (System Testing) เป็นระดับการทดสอบที่สูงกว่าและมุ่งเน้นไปที่ระบบทั้งหมด ไม่ใช่ฟังก์ชันหรือหน่วยงานย่อยๆ\n\n3. ข้อเสนอแนะในการปรับปรุง  \n   - ควรถูกต้องตามเฉลยโดยการกล่าวถึง Unit Testing และเครื่องมือที่เกี่ยวข้อง  \n   - ควรอธิบายถึงความแตกต่างระหว่างระดับการทดสอบต่างๆ เช่น Unit Testing, Integration Testing, System Testing  \n   - ควรเน้นย้ำถึงความสำคัญของ Unit Testing ในการตรวจสอบฟังก์ชันหรือหน่วยงานย่อยๆ ภายในระบบ",
+          "score": 5.0,
+          "context_accuracy": 0.4,
+          "processing_time": 15.050574541091919
+        },
+        {
+          "question": "การทดสอบการถดถอยมีประโยชน์อย่างไร",
+          "student_answer": "ไม่ทราบว่ามีประโยชน์อย่างไร",
+          "evaluation": "<think>\nOkay, I need to evaluate the student's answer about the benefits of regression testing. The student wrote, \"ไม่ทราบว่ามีประโยชน์อย่างไร,\" which means \"I don't know what the benefits are.\" \n\nFirst, I'll look at the answer key provided. It mentions several types of testing like functional testing, non-functional testing (including performance, load, stress), regression testing, and user acceptance testing. The key seems to outline different testing categories but doesn't explicitly state the benefits of regression testing.\n\nThe student's answer is very short and shows a lack of understanding. They didn't provide any points, even if they were incorrect. So, there are no strengths in this answer because it doesn't address the question at all.\n\nThe weaknesses are clear: the student didn't answer the question and didn't provide any relevant information. They also didn't attempt to explain any benefits, which is what the question asked for.\n\nTo improve, the student should study the material on regression testing. They need to understand that regression testing is about ensuring changes don't break existing features. They should outline specific benefits like detecting bugs early, maintaining functionality, and ensuring system stability after updates. It would also be good to mention how it saves time and resources in the long run by catching issues early.\n\nSo, the score is 0/10 because the student didn't provide any meaningful answer. They need to work on understanding the topic and providing detailed responses.\n</think>\n\nคะแนน: 0/10\n\n1. จุดเด่นของคำตอบ  \n   - ไม่มีจุดเด่นในคำตอบนี้\n\n2. จุดที่ขาดหรือไม่ถูกต้อง  \n   - นักศึกษาไม่ได้ให้คำตอบที่เกี่ยวข้องกับการทดสอบการถดถอย (Regression Testing) \n   - ไม่มีการอธิบายถึงประโยชน์ของการทดสอบการถดถอย\n   - ไม่มีการ提及ถึงหัวข้อหรือประเภทของการทดสอบอื่น ๆ ที่เกี่ยวข้อง\n\n3. ข้อเสนอแนะในการปรับปรุง  \n   - ควรมีการศึกษาและทำความเข้าใจเกี่ยวกับการทดสอบการถดถอย (Regression Testing) และประโยชน์ของมัน\n   - ควรอธิบายถึงประโยชน์ของการทดสอบการถดถอย เช่น การตรวจสอบให้แน่ใจว่าระบบยังคงทำงานได้ตามที่คาดหวังหลังจากมีการเปลี่ยนแปลงหรืออัปเดต\n   - ควรให้ข้อมูลเกี่ยวกับประเภทของการทดสอบอื่น ๆ ที่เกี่ยวข้อง เช่น Functional Testing, Non-functional Testing, Performance Testing, Load Testing, Stress Testing, และ User Acceptance Testing (UAT)",
+          "score": 5.0,
+          "context_accuracy": 0.6,
+          "processing_time": 15.043540239334106
+        }
+      ]
+    },
+    "thai_language": {
+      "status": "success",
+      "avg_thai_accuracy": 0.4583333333333333,
+      "avg_thai_ratio": 0.40952621612170975,
+      "avg_score": 5.0,
+      "avg_processing_time": 15.779141346613565,
+      "details": [
+        {
+          "question": "อธิบายหลักการออกแบบ UI ที่เกี่ยวกับความเรียบง่ายและความสอดคล้อง",
+          "student_answer": "ความเรียบง่ายคือการออกแบบที่ไม่ซับซ้อน ส่วนความสอดคล้องคือการใช้รูปแบบที่เหมือนกันตลอดทั้งระบบ",
+          "evaluation": "<think>\nOkay, I need to evaluate the student's answer about UI design principles focusing on simplicity and consistency. The student wrote that simplicity is about not being complicated and consistency is using the same styles throughout the system. \n\nFirst, I'll check the strengths. The student correctly identified both principles, which is good. They kept their explanation clear and straightforward, which makes it easy to understand.\n\nNow, looking at the weaknesses. The student's explanation is quite brief and lacks depth. They didn't provide examples or elaborate on why these principles are important. Also, they didn't mention other related aspects like avoiding unnecessary elements for simplicity or specific ways consistency is applied, like typography or color schemes.\n\nFor improvements, the student should expand their answers with examples. For simplicity, they could talk about removing unnecessary elements. For consistency, they might discuss using the same design patterns across the interface. Adding reasons why these principles matter would also strengthen their answer.\n\nOverall, the student is on the right track but needs to provide more detailed and comprehensive explanations to fully cover the topic.\n</think>\n\nคะแนน: 7/10\n\n1. **จุดเด่นของคำตอบ**  \n   - นักศึกษาได้อธิบายหลักการออกแบบ UI ที่เกี่ยวข้องกับความเรียบง่ายและความสอดคล้องอย่างถูกต้อง  \n   - คำตอบสั้นและตรงประเด็น  \n\n2. **จุดที่ขาดหรือไม่ถูกต้อง**  \n   - คำตอบไม่มีการอธิบายรายละเอียดเพิ่มเติมเกี่ยวกับความเรียบง่ายและความสอดคล้อง  \n   - ไม่มีการให้ตัวอย่างหรืออธิบายว่าทำไมหลักการเหล่านี้จึงมีความสำคัญ  \n\n3. **ข้อเสนอแนะในการปรับปรุง**  \n   - ควรมีการเพิ่มรายละเอียดเกี่ยวกับความเรียบง่าย เช่น การหลีกเลี่ยงองค์ประกอบที่ไม่จำเป็น  \n   - ควรมีการอธิบายความสอดคล้องในด้านต่างๆ เช่น การใช้แบบฟอร์มหรือสีที่เหมือนกัน  \n   - ควรให้ตัวอย่างหรือคำอธิบายเพิ่มเติมเพื่อช่วยให้คำตอบมีความเข้าใจได้ดีขึ้น",
+          "score": 5.0,
+          "thai_accuracy": 0.375,
+          "thai_ratio": 0.2882882882882883,
+          "processing_time": 15.246948719024658
+        },
+        {
+          "question": "การให้ข้อมูลย้อนกลับ (Feedback) มีความสำคัญต่อการออกแบบ UI อย่างไร",
+          "student_answer": "การให้ข้อมูลย้อนกลับทำให้ผู้ใช้รู้ว่าระบบกำลังทำงานอยู่ เช่น แสดงข้อความเมื่อบันทึกข้อมูลสำเร็จ",
+          "evaluation": "<think>\nOkay, I need to evaluate the student's answer about the importance of feedback in UI design. The student wrote that feedback lets users know the system is working, like showing a message when data is saved successfully. \n\nLooking at the answer key, it mentions feedback under principle 4, with points like confirming actions, showing progress, and informing about errors. The student's answer touches on confirmation but doesn't cover progress indicators or error messages. \n\nThe student's answer is correct but a bit limited. They could improve by mentioning other aspects of feedback. Also, their Thai is clear, but they could use more technical terms for better clarity.\n</think>\n\nคะแนน: 6/10\n\n1. **จุดเด่นของคำตอบ**  \n   - คำตอบของนักศึกษาได้กล่าวถึงความสำคัญของการให้ข้อมูลย้อนกลับ (Feedback) ในการออกแบบ UI ซึ่งเป็นส่วนหนึ่งของหลักการออกแบบ UI ที่สำคัญ\n   - นักศึกษาได้ให้ตัวอย่างการแสดงข้อความเมื่อบันทึกข้อมูลสำเร็จ ซึ่งเป็นตัวอย่างที่เกี่ยวข้องกับการให้ข้อมูลย้อนกลับ\n\n2. **จุดที่ขาดหรือไม่ถูกต้อง**  \n   - คำตอบของนักศึกษามีรายละเอียดไม่เพียงพอเกี่ยวกับความสำคัญของการให้ข้อมูลย้อนกลับใน UI Design\n   - ไม่ได้กล่าวถึงหลักการหรือจุดประสงค์อื่น ๆ ของการให้ข้อมูลย้อนกลับ เช่น การแสดงสถานะการทำงานของระบบ (Loading) หรือการแจ้งเตือนเกี่ยวกับข้อผิดพลาด\n   - ไม่ได้กล่าวถึงหลักการหรือตัวอย่างอื่น ๆ ที่เกี่ยวข้องกับการให้ข้อมูลย้อนกลับ\n\n3. **ข้อเสนอแนะในการปรับปรุง**  \n   - ควรเพิ่มรายละเอียดเกี่ยวกับหลักการหรือจุดประสงค์ของการให้ข้อมูลย้อนกลับใน UI Design เช่น การยืนยันการดำเนินการ (Confirmation), การแสดงสถานะการทำงาน (Loading), หรือการแจ้งเตือนเกี่ยวกับข้อผิดพลาด (Error Messages)\n   - ควรให้ตัวอย่างที่หลากหลายขึ้นเพื่อแสดงถึงความสำคัญของการให้ข้อมูลย้อนกลับในหลายๆ สถานการณ์\n   - ควรใช้ภาษาไทยที่ชัดเจนและถูกต้องในการอธิบายเพื่อความเข้าใจที่ดีขึ้น",
+          "score": 5.0,
+          "thai_accuracy": 0.6,
+          "thai_ratio": 0.4985851726089417,
+          "processing_time": 15.43150019645691
+        },
+        {
+          "question": "หลักการป้องกันข้อผิดพลาดในการออกแบบ UI ควรทำอย่างไร",
+          "student_answer": "เราควรใส่ปุ่มยืนยันก่อนลบข้อมูลสำคัญ และแสดงข้อความแจ้งเตือนที่ชัดเจน",
+          "evaluation": "<think>\nOkay, I need to evaluate the student's answer about UI error prevention principles. The student mentioned adding a confirmation button before deleting important data and showing clear warning messages. \n\nLooking at the answer key, it includes simplicity, error prevention with specific examples like confirmation dialogs and warnings, flexibility, and user control. The student's points about confirmation and warnings align well with the error prevention section. They also touch on user control by giving options before actions. \n\nHowever, the student didn't mention other principles like simplicity or flexibility. Also, the answer is a bit brief and could use more detail on how these elements prevent errors. \n\nI think the student did a good job hitting the main points but missed some key areas. They should expand on other principles and maybe provide examples for a more comprehensive answer.\n</think>\n\nคะแนน: 7/10\n\n1. **จุดเด่นของคำตอบ**  \n   - นักศึกษาได้กล่าวถึงการใส่ปุ่มยืนยัน (confirmation button) ก่อนลบข้อมูลสำคัญ ซึ่งเป็นแนวปฏิบัติที่ดีในการป้องกันข้อผิดพลาด\n   - นักศึกษายังได้กล่าวถึงการแสดงข้อความแจ้งเตือนที่ชัดเจน ซึ่งเป็นวิธีการป้องกันข้อผิดพลาดที่มีประสิทธิภาพ\n\n2. **จุดที่ขาดหรือไม่ถูกต้อง**  \n   - คำตอบของนักศึกษามีความคลุมเครือและไม่ครอบคลุมหลักการป้องกันข้อผิดพลาดในการออกแบบ UI ที่กล่าวถึงในเฉลยที่ให้มา\n   - ไม่ได้กล่าวถึงหลักการอื่น ๆ ที่เกี่ยวข้องกับการป้องกันข้อผิดพลาด เช่น ความเรียบง่าย (Simplicity) และความยืดหยุ่น (Flexibility)\n   - ไม่ได้อธิบายรายละเอียดเกี่ยวกับวิธีการนำหลักการเหล่านี้ไปใช้ในการออกแบบ UI\n\n3. **ข้อเสนอแนะในการปรับปรุง**  \n   - ควรเพิ่มรายละเอียดเกี่ยวกับหลักการป้องกันข้อผิดพลาดในการออกแบบ UI ที่กล่าวถึงในเฉลย เช่น การใช้ปุ่มยืนยัน การแสดงข้อความแจ้งเตือน และการออกแบบที่เรียบง่าย\n   - ควรอธิบายวิธีการนำหลักการเหล่านี้ไปใช้ในการออกแบบ UI ในสถานการณ์ต่าง ๆ\n   - ควรเพิ่มความครอบคลุมเกี่ยวกับหลักการอื่น ๆ ที่เกี่ยวข้องกับการป้องกันข้อผิดพลาด เช่น ความยืดหยุ่นและการควบคุมของผู้ใช้",
+          "score": 5.0,
+          "thai_accuracy": 0.4,
+          "thai_ratio": 0.44170518746789933,
+          "processing_time": 16.65897512435913
+        }
+      ]
+    },
+    "answer_variability": {},
+    "performance": {}
+  },
+  "scores": {
+    "retrieval_accuracy": 50.0,
+    "contextual_understanding": 61.904761904761905,
+    "thai_language": 45.83333333333333,
+    "answer_variability": 0,
+    "performance": 0,
+    "total": 31.547619047619047
+  },
+  "grade": "F"
+}
