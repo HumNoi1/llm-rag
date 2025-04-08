@@ -1,60 +1,64 @@
 // frontend/src/app/api/auth/register/route.js
 import { NextResponse } from 'next/server';
+import supabase from '@/lib/supabase';
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 export async function POST(request) {
   try {
+    // อ่านข้อมูล JSON จาก request
     const { fullName, email, password, academicPosition } = await request.json();
-
-    // ตรวจสอบข้อมูลที่จำเป็น
-    if (!fullName || !email || !password) {
-      return NextResponse.json(
-        { message: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
-        { status: 400 }
-      );
-    }
-
-    // เชื่อมต่อกับ HumNoti API เพื่อลงทะเบียนผู้ใช้ใหม่
-    const response = await fetch('https://your-humnoti-api-url/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.HUMNOTI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        email,
-        password,
-        name: fullName,
-        metadata: {
-          academic_position: academicPosition,
-          role: 'teacher',
+    
+    // สร้าง Supabase client ฝั่ง server
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value
+          },
+          set(name, value, options) {
+            cookieStore.set({ name, value, ...options })
+          },
+          remove(name, options) {
+            cookieStore.set({ name, value: '', ...options })
+          },
         },
-        // เพิ่มค่า sendEmailVerification เป็น true เพื่อส่งอีเมลยืนยัน
-        sendEmailVerification: true
-      }),
+      }
+    )
+    
+    // ลงทะเบียนผู้ใช้ใหม่
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { message: data.message || 'ไม่สามารถลงทะเบียนได้' },
-        { status: response.status }
-      );
+    
+    if (authError) {
+      return NextResponse.json({ error: authError.message }, { status: 400 });
     }
-
-    return NextResponse.json(
-      { 
-        message: 'ลงทะเบียนสำเร็จ กรุณาตรวจสอบอีเมลของคุณเพื่อยืนยันตัวตน', 
-        userId: data.userId || data.user_id || data.id,
-        emailVerificationSent: true
-      },
-      { status: 201 }
-    );
+    
+    // เพิ่มข้อมูลผู้ใช้ในตาราง users
+    const { error: profileError } = await supabase
+      .from('users')
+      .insert([
+        { 
+          id: authData.user.id,
+          full_name: fullName,
+          email,
+          academic_position: academicPosition,
+        }
+      ]);
+      
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 400 });
+    }
+    
+    return NextResponse.json({ success: true, userId: authData.user.id }, { status: 201 });
+    
   } catch (error) {
-    console.error('Server error during registration:', error);
-    return NextResponse.json(
-      { message: 'เกิดข้อผิดพลาดบนเซิร์ฟเวอร์' },
-      { status: 500 }
-    );
+    console.error('Error during registration:', error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
   }
 }
