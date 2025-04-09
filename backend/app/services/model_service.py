@@ -11,16 +11,29 @@ class ModelService:
     """
     
     def __init__(self):
-        # สร้าง LLM instance โดยใช้ Groq API
+        """เริ่มต้น ModelService โดยโหลดโมเดล LLM และ Embeddings"""
+        self._initialize_models()
+    
+    def _initialize_models(self):
+        """โหลดและตั้งค่าโมเดล LLM และ Embeddings"""
+        self._initialize_llm()
+        self._initialize_embeddings()
+    
+    def _initialize_llm(self):
+        """
+        เตรียม LLM จาก Groq
+        """
         self.llm = ChatGroq(
             groq_api_key=GROQ_API_KEY,
             model_name=GROQ_MODEL_NAME,
             temperature=0.1,  # ตั้งค่า temperature ต่ำเพื่อให้คำตอบแน่นอนมากขึ้น
             max_tokens=4096,
         )
-        
-        # สร้าง Embeddings instance โดยใช้โมเดลจาก Hugging Face
-        # ในที่นี้เราเลือกใช้ sentence-transformers/all-MiniLM-L6-v2 ซึ่งรองรับภาษาไทยด้วย
+    
+    def _initialize_embeddings(self):
+        """
+        เตรียม Embeddings model จาก Hugging Face
+        """
         self.embeddings = HuggingFaceEmbeddings(
             model_name=EMBEDDING_MODEL_NAME,
             model_kwargs={"device": "cpu"},  # เปลี่ยนเป็น "cuda" ถ้ามี GPU
@@ -30,11 +43,17 @@ class ModelService:
     def get_llm(self):
         """
         ดึง LLM instance
+        
+        Returns:
+            LLM instance
         """
         return self.llm
     
     def get_embeddings(self):
         """
         ดึง Embeddings instance
+        
+        Returns:
+            Embeddings instance
         """
         return self.embeddings

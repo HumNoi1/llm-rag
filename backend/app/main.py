@@ -4,22 +4,42 @@ from .services.rag_service import AnswerEvaluationService
 from .services.llm_service import LLMEvaluationService
 from .routers import evaluation
 
-app = FastAPI(title="ระบบผู้ช่วยตรวจข้อสอบอัตนัย", version="1.0.0")
+# สร้าง FastAPI app
+app = FastAPI(
+    title="ระบบผู้ช่วยตรวจข้อสอบอัตนัย",
+    version="1.0.0",
+    description="API สำหรับระบบผู้ช่วยตรวจข้อสอบอัตนัยด้วย AI"
+)
 
-# Dependency providers
-def get_rag_service():
-    return AnswerEvaluationService()
+def setup_dependencies():
+    """กำหนด dependencies สำหรับ FastAPI"""
+    
+    # Dependency providers
+    def get_rag_service():
+        """สร้าง RAG service instance"""
+        return AnswerEvaluationService()
 
-def get_llm_service(rag_service: AnswerEvaluationService = Depends(get_rag_service)):
-    return LLMEvaluationService(rag_service)
+    def get_llm_service(rag_service: AnswerEvaluationService = Depends(get_rag_service)):
+        """สร้าง LLM service instance โดยใช้ RAG service"""
+        return LLMEvaluationService(rag_service)
 
-# ลงทะเบียน dependencies กับ FastAPI
-app.dependency_overrides[AnswerEvaluationService] = get_rag_service
-app.dependency_overrides[LLMEvaluationService] = get_llm_service
+    # ลงทะเบียน dependencies กับ FastAPI
+    app.dependency_overrides[AnswerEvaluationService] = get_rag_service
+    app.dependency_overrides[LLMEvaluationService] = get_llm_service
 
-# เพิ่ม routers
-app.include_router(evaluation.router)
+def setup_routers():
+    """กำหนด routers สำหรับ FastAPI"""
+    app.include_router(evaluation.router)
 
-@app.get("/")
-async def root():
-    return {"message": "ยินดีต้อนรับสู่ API ผู้ช่วยตรวจข้อสอบอัตนัย"}
+def setup_routes():
+    """กำหนด routes พื้นฐานสำหรับ FastAPI"""
+    
+    @app.get("/")
+    async def root():
+        """Route หลักของ API"""
+        return {"message": "ยินดีต้อนรับสู่ API ผู้ช่วยตรวจข้อสอบอัตนัย"}
+
+# เริ่มต้นตั้งค่า app
+setup_dependencies()
+setup_routers()
+setup_routes()
