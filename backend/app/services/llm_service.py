@@ -79,9 +79,18 @@ class LLMEvaluationService:
             StateGraph สำหรับการประเมินคำตอบ
         """
         # สร้าง graph การประมวลผล
-        graph_builder = StateGraph(EvaluationState).add_sequence([self._retrieve, self._evaluate])
-        graph_builder.add_edge(START, "retrieve")
-        return graph_builder.compile()
+        workflow = StateGraph(EvaluationState)
+        
+        # Add nodes
+        workflow.add_node("retrieve", self._retrieve)
+        workflow.add_node("evaluate", self._evaluate)
+        
+        # Add edges
+        workflow.add_edge(START, "retrieve")
+        workflow.add_edge("retrieve", "evaluate")
+        workflow.set_entry_point("retrieve")
+        
+        return workflow.compile()
     
     def _retrieve(self, state: EvaluationState):
         """

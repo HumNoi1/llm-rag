@@ -6,7 +6,7 @@ langchain-chroma
 langchain-huggingface==0.1.2
 langchain-openai==0.3.8
 langchain-groq==0.2.5
-langgraph==0.3.8
+langgraph==0.3.27
 supabase==2.13.0
 PyMuPDF==1.25.4
 sentence-transformers==3.4.1

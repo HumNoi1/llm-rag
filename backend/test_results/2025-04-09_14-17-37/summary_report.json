@@ -1,0 +1,20 @@
+{
+  "test_id": "TEST_f8d1dd8a",
+  "test_date": "2025-04-09_14-17-37",
+  "results": {
+    "retrieval_accuracy": {},
+    "contextual_understanding": {},
+    "thai_language": {},
+    "answer_variability": {},
+    "performance": {}
+  },
+  "scores": {
+    "retrieval_accuracy": 0,
+    "contextual_understanding": 0,
+    "thai_language": 0,
+    "answer_variability": 0,
+    "performance": 0,
+    "total": 0.0
+  },
+  "grade": "F"
+}
