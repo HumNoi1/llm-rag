@@ -35,27 +35,49 @@ class RAGTester:
         """
         self.api_base_url = api_base_url
         self.use_api = use_api
+        
+        # ตั้งค่าไดเรกทอรีสำหรับเก็บผลลัพธ์
+        self._setup_results_directory()
+        
+        # สร้าง ID ที่ไม่ซ้ำกันสำหรับการทดสอบ
+        self.subject_id = self._generate_test_id()
+        
+        # เตรียมข้อมูลโมเดล
+        self._prepare_model_info()
+        
+        # เตรียม service (ถ้าไม่ใช้ API)
+        self._initialize_services()
+        
+        # เตรียมตัวแปรเก็บผลการทดสอบ
+        self._initialize_test_results()
+    
+    def _setup_results_directory(self):
+        """ตั้งค่าไดเรกทอรีสำหรับเก็บผลลัพธ์"""
         self.test_date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.results_dir = Path(f"./test_results/{self.test_date}")
         self.results_dir.mkdir(parents=True, exist_ok=True)
-        
-        # สร้าง ID ที่ไม่ซ้ำกันสำหรับการทดสอบ
-        self.subject_id = f"TEST_{uuid.uuid4().hex[:8]}"
-        
-        # ดึงข้อมูลชื่อโมเดลจาก config
+    
+    def _generate_test_id(self):
+        """สร้าง ID ที่ไม่ซ้ำสำหรับการทดสอบ"""
+        return f"TEST_{uuid.uuid4().hex[:8]}"
+    
+    def _prepare_model_info(self):
+        """เตรียมข้อมูลชื่อโมเดลจาก config"""
         from app.config import GROQ_MODEL_NAME, EMBEDDING_MODEL_NAME
         self.model_info = {
             "llm_model": GROQ_MODEL_NAME,
             "embedding_model": EMBEDDING_MODEL_NAME
         }
-        
-        # ถ้าไม่ใช้ API ให้เตรียม service
+    
+    def _initialize_services(self):
+        """เตรียม service สำหรับการทดสอบ (กรณีไม่ใช้ API)"""
         if not self.use_api:
             self.rag_service = AnswerEvaluationService()
             model_service = ModelService()
             self.llm_service = LLMEvaluationService(self.rag_service)
-        
-        # ตั้งค่าเริ่มต้นสำหรับผลการทดสอบ
+    
+    def _initialize_test_results(self):
+        """เตรียมตัวแปรสำหรับเก็บผลการทดสอบ"""
         self.test_results = {
             "retrieval_accuracy": {},
             "contextual_understanding": {},
@@ -76,28 +98,50 @@ class RAGTester:
             path: พาธของไฟล์ PDF ที่สร้าง
         """
         # สร้างไฟล์ PDF ชั่วคราวหรือตามชื่อที่ระบุ
-        if filename:
-            pdf_path = filename
-        else:
-            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-                pdf_path = tmp.name
+        pdf_path = self._create_pdf_path(filename)
         
-        # สร้างเอกสาร PDF
-        doc = fitz.open()
-        page = doc.new_page()
-        
-        # เพิ่มเนื้อหา
-        y_pos = 50
-        for line in content.split('\n'):
-            page.insert_text((50, y_pos), line, fontsize=11)
-            y_pos += 15  # เพิ่ม y position สำหรับบรรทัดถัดไป
-        
-        # บันทึกไฟล์
-        doc.save(pdf_path)
-        doc.close()
+        # สร้างเอกสาร PDF พร้อมเนื้อหา
+        self._write_pdf_content(pdf_path, content)
         
         print(f"สร้างไฟล์ PDF สำเร็จ: {pdf_path}")
         return pdf_path
+    
+    def _create_pdf_path(self, filename=None):
+        """
+        สร้างพาธสำหรับไฟล์ PDF
+        
+        Args:
+            filename: ชื่อไฟล์ที่ต้องการ (ถ้าไม่ระบุจะสร้างไฟล์ชั่วคราว)
+            
+        Returns:
+            str: พาธของไฟล์
+        """
+        if filename:
+            return filename
+        else:
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+                return tmp.name
+    
+    def _write_pdf_content(self, pdf_path, content):
+        """
+        เขียนเนื้อหาลงในไฟล์ PDF
+        
+        Args:
+            pdf_path: พาธของไฟล์ PDF
+            content: เนื้อหาที่ต้องการเขียน
+        """
+        # ใช้ with statement เพื่อจัดการทรัพยากร
+        with fitz.open() as doc:
+            page = doc.new_page()
+            
+            # เพิ่มเนื้อหาทีละบรรทัด
+            y_pos = 50
+            for line in content.split('\n'):
+                page.insert_text((50, y_pos), line, fontsize=11)
+                y_pos += 15
+            
+            # บันทึกไฟล์
+            doc.save(pdf_path)
     
     def upload_answer_key(self, content, question_id):
         """
@@ -116,52 +160,76 @@ class RAGTester:
         pdf_path = self.create_test_pdf(content)
         
         try:
+            # เลือกวิธีอัปโหลดตามโหมดการทดสอบ
             if self.use_api:
-                # ใช้ API
-                url = f"{self.api_base_url}/api/evaluation/upload-answer-key"
-                
-                with open(pdf_path, 'rb') as f:
-                    files = {'file': (os.path.basename(pdf_path), f, 'application/pdf')}
-                    data = {
-                        'subject_id': self.subject_id,
-                        'question_id': question_id
-                    }
-                    
-                    start_time = time.time()
-                    response = requests.post(url, files=files, data=data)
-                    elapsed_time = time.time() - start_time
-                    
-                if response.status_code == 200:
-                    print(f"✅ อัปโหลดเฉลยสำเร็จ (ใช้เวลา {elapsed_time:.2f} วินาที)")
-                    return True
-                else:
-                    print(f"❌ อัปโหลดเฉลยล้มเหลว: {response.status_code}")
-                    print(f"รายละเอียด: {response.text}")
-                    return False
+                return self._upload_via_api(pdf_path, question_id)
             else:
-                # ใช้ service โดยตรง
-                with open(pdf_path, 'rb') as f:
-                    file_content = f.read()
-                
-                start_time = time.time()
-                chunk_count = self.rag_service.index_answer_key(
-                    file_content,
-                    self.subject_id,
-                    question_id,
-                    os.path.basename(pdf_path)
-                )
-                elapsed_time = time.time() - start_time
-                
-                print(f"✅ เพิ่มเฉลยสำเร็จ: {chunk_count} ชิ้นส่วน (ใช้เวลา {elapsed_time:.2f} วินาที)")
-                return True
-                
+                return self._upload_via_service(pdf_path, question_id)
         except Exception as e:
-            print(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+            print(f"❌ เกิดข้อผิดพลาดในการอัปโหลดเฉลย: {str(e)}")
             return False
         finally:
             # ลบไฟล์ทดสอบ
             if os.path.exists(pdf_path):
                 os.unlink(pdf_path)
+    
+    def _upload_via_api(self, pdf_path, question_id):
+        """
+        อัปโหลดเฉลยผ่าน API
+        
+        Args:
+            pdf_path: พาธของไฟล์ PDF
+            question_id: รหัสคำถาม
+            
+        Returns:
+            bool: ผลการอัปโหลด
+        """
+        url = f"{self.api_base_url}/api/evaluation/upload-answer-key"
+        
+        with open(pdf_path, 'rb') as f:
+            files = {'file': (os.path.basename(pdf_path), f, 'application/pdf')}
+            data = {
+                'subject_id': self.subject_id,
+                'question_id': question_id
+            }
+            
+            start_time = time.time()
+            response = requests.post(url, files=files, data=data)
+            elapsed_time = time.time() - start_time
+        
+        if response.status_code == 200:
+            print(f"✅ อัปโหลดเฉลยสำเร็จ (ใช้เวลา {elapsed_time:.2f} วินาที)")
+            return True
+        else:
+            print(f"❌ อัปโหลดเฉลยล้มเหลว: {response.status_code}")
+            print(f"รายละเอียด: {response.text}")
+            return False
+    
+    def _upload_via_service(self, pdf_path, question_id):
+        """
+        อัปโหลดเฉลยผ่าน service โดยตรง
+        
+        Args:
+            pdf_path: พาธของไฟล์ PDF
+            question_id: รหัสคำถาม
+            
+        Returns:
+            bool: ผลการอัปโหลด
+        """
+        with open(pdf_path, 'rb') as f:
+            file_content = f.read()
+        
+        start_time = time.time()
+        chunk_count = self.rag_service.index_answer_key(
+            file_content,
+            self.subject_id,
+            question_id,
+            os.path.basename(pdf_path)
+        )
+        elapsed_time = time.time() - start_time
+        
+        print(f"✅ เพิ่มเฉลยสำเร็จ: {chunk_count} ชิ้นส่วน (ใช้เวลา {elapsed_time:.2f} วินาที)")
+        return True
     
     def evaluate_answer(self, question, student_answer, question_id):
         """
@@ -178,42 +246,73 @@ class RAGTester:
         try:
             start_time = time.time()
             
+            # เลือกวิธีประเมินตามโหมดการทดสอบ
             if self.use_api:
-                # ใช้ API
-                url = f"{self.api_base_url}/api/evaluation/evaluate"
-                
-                data = {
-                    'question': question,
-                    'student_answer': student_answer,
-                    'subject_id': self.subject_id,
-                    'question_id': question_id
-                }
-                
-                response = requests.post(url, json=data)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                else:
-                    print(f"❌ ประเมินคำตอบล้มเหลว: {response.status_code}")
-                    print(f"รายละเอียด: {response.text}")
-                    return None
+                result = self._evaluate_via_api(question, student_answer, question_id)
             else:
-                # ใช้ service โดยตรง
-                result = self.llm_service.evaluate_answer(
-                    question=question,
-                    student_answer=student_answer,
-                    subject_id=self.subject_id,
-                    question_id=question_id
-                )
+                result = self._evaluate_via_service(question, student_answer, question_id)
             
+            if not result:
+                return None
+                
+            # เพิ่มข้อมูลเวลาที่ใช้
             elapsed_time = time.time() - start_time
             result['processing_time'] = elapsed_time
             
             return result
                 
         except Exception as e:
-            print(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+            print(f"❌ เกิดข้อผิดพลาดในการประเมินคำตอบ: {str(e)}")
             return None
+    
+    def _evaluate_via_api(self, question, student_answer, question_id):
+        """
+        ประเมินคำตอบผ่าน API
+        
+        Args:
+            question: คำถาม
+            student_answer: คำตอบของนักเรียน
+            question_id: รหัสคำถาม
+            
+        Returns:
+            dict: ผลการประเมิน หรือ None ถ้าล้มเหลว
+        """
+        url = f"{self.api_base_url}/api/evaluation/evaluate"
+        
+        data = {
+            'question': question,
+            'student_answer': student_answer,
+            'subject_id': self.subject_id,
+            'question_id': question_id
+        }
+        
+        response = requests.post(url, json=data)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"❌ ประเมินคำตอบล้มเหลว: {response.status_code}")
+            print(f"รายละเอียด: {response.text}")
+            return None
+    
+    def _evaluate_via_service(self, question, student_answer, question_id):
+        """
+        ประเมินคำตอบผ่าน service โดยตรง
+        
+        Args:
+            question: คำถาม
+            student_answer: คำตอบของนักเรียน
+            question_id: รหัสคำถาม
+            
+        Returns:
+            dict: ผลการประเมิน
+        """
+        return self.llm_service.evaluate_answer(
+            question=question,
+            student_answer=student_answer,
+            subject_id=self.subject_id,
+            question_id=question_id
+        )
     
     def test_retrieval_accuracy(self):
         """
@@ -225,8 +324,28 @@ class RAGTester:
         print("\n=== ทดสอบความแม่นยำในการค้นคืนเนื้อหา ===")
         question_id = "RETRIEVAL_TEST"
         
-        # เนื้อหาเฉลยที่มีข้อมูลหลากหลาย
-        answer_key_content = """
+        # เตรียมเนื้อหาเฉลยและอัปโหลด
+        answer_key_content = self._get_sdlc_content()
+        if not self.upload_answer_key(answer_key_content, question_id):
+            return {"status": "failed", "reason": "upload_failed"}
+        
+        # เตรียมคำถามสำหรับทดสอบความแม่นยำ
+        test_queries = self._get_retrieval_test_queries()
+        
+        # ทดสอบการค้นคืน
+        results = self._run_retrieval_tests(test_queries, question_id)
+        
+        # ประมวลผลและบันทึกผลลัพธ์
+        return self._process_retrieval_results(results)
+    
+    def _get_sdlc_content(self):
+        """
+        เตรียมเนื้อหาเกี่ยวกับ SDLC สำหรับทดสอบความแม่นยำในการค้นคืน
+        
+        Returns:
+            str: เนื้อหาเฉลย
+        """
+        return """
         วงจรชีวิตการพัฒนาซอฟต์แวร์ (Software Development Life Cycle - SDLC)
         
         SDLC คือกระบวนการที่ใช้ในการพัฒนาซอฟต์แวร์ให้มีคุณภาพ ซึ่งประกอบไปด้วยขั้นตอนดังนี้:
@@ -275,13 +394,15 @@ class RAGTester:
         - แบบวนซ้ำ (Iterative Model): พัฒนาเป็นรอบๆ โดยแต่ละรอบมีการเพิ่มฟีเจอร์
         - แบบอไจล์ (Agile Model): เน้นความยืดหยุ่น การปรับตัว และการพัฒนาแบบรวดเร็ว
         """
+    
+    def _get_retrieval_test_queries(self):
+        """
+        เตรียมคำถามสำหรับทดสอบความแม่นยำในการค้นคืน
         
-        # อัปโหลดเฉลย
-        if not self.upload_answer_key(answer_key_content, question_id):
-            return {"status": "failed", "reason": "upload_failed"}
-        
-        # คำถามสำหรับทดสอบความแม่นยำ
-        test_queries = [
+        Returns:
+            list: รายการคำถามพร้อมคำสำคัญที่ควรพบ
+        """
+        return [
             {
                 "query": "อธิบายขั้นตอนการทดสอบใน SDLC",
                 "expected_keywords": ["Unit Testing", "Integration Testing", "System Testing", "Acceptance Testing"]
@@ -295,90 +416,148 @@ class RAGTester:
                 "expected_keywords": ["ติดตั้ง", "สภาพแวดล้อมจริง", "ฝึกอบรม", "ย้ายข้อมูล"]
             }
         ]
+    
+    def _run_retrieval_tests(self, test_queries, question_id):
+        """
+        ทดสอบการค้นคืนด้วยคำถามต่างๆ
         
+        Args:
+            test_queries: รายการคำถามที่ใช้ทดสอบ
+            question_id: รหัสคำถาม
+            
+        Returns:
+            list: ผลการทดสอบแต่ละคำถาม
+        """
         results = []
         
         for test_case in test_queries:
             print(f"\nทดสอบค้นหา: {test_case['query']}")
             
-            # ดึงข้อมูลที่เกี่ยวข้องโดยตรงจาก RAG service
+            # เลือกวิธีทดสอบตามโหมดการทดสอบ
             if not self.use_api:
-                docs = self.rag_service.retrieve_relevant_context(
-                    test_case['query'],
-                    self.subject_id,
-                    question_id
-                )
-                
-                # คำนวณความแม่นยำ
-                found_keywords = 0
-                retrieved_text = " ".join([doc.page_content for doc in docs])
-                
-                for keyword in test_case['expected_keywords']:
-                    if keyword in retrieved_text:
-                        found_keywords += 1
-                        print(f"  ✅ พบคำสำคัญ: {keyword}")
-                    else:
-                        print(f"  ❌ ไม่พบคำสำคัญ: {keyword}")
-                
-                precision = found_keywords / len(test_case['expected_keywords'])
-                
-                # บันทึกผลลัพธ์
-                case_result = {
-                    "query": test_case['query'],
-                    "precision": precision,
-                    "found_keywords": found_keywords,
-                    "total_keywords": len(test_case['expected_keywords']),
-                    "retrieved_text": retrieved_text
-                }
-                
-                results.append(case_result)
-                print(f"  ความแม่นยำ: {precision * 100:.2f}%")
+                result = self._test_retrieval_direct(test_case, question_id)
             else:
-                # ใช้การประเมินคำตอบแทนเมื่อไม่สามารถเข้าถึง RAG service โดยตรง
-                sample_answer = "ไม่ทราบคำตอบ"
-                result = self.evaluate_answer(test_case['query'], sample_answer, question_id)
-                
-                if result:
-                    found_keywords = 0
-                    for keyword in test_case['expected_keywords']:
-                        if keyword in result['evaluation']:
-                            found_keywords += 1
-                            print(f"  ✅ พบคำสำคัญ: {keyword}")
-                        else:
-                            print(f"  ❌ ไม่พบคำสำคัญ: {keyword}")
-                    
-                    precision = found_keywords / len(test_case['expected_keywords'])
-                    
-                    case_result = {
-                        "query": test_case['query'],
-                        "precision": precision,
-                        "found_keywords": found_keywords,
-                        "total_keywords": len(test_case['expected_keywords']),
-                        "evaluation": result['evaluation']
-                    }
-                    
-                    results.append(case_result)
-                    print(f"  ความแม่นยำ: {precision * 100:.2f}%")
+                result = self._test_retrieval_via_api(test_case, question_id)
+            
+            if result:
+                results.append(result)
         
+        return results
+    
+    def _test_retrieval_direct(self, test_case, question_id):
+        """
+        ทดสอบการค้นคืนโดยตรงผ่าน RAG service
+        
+        Args:
+            test_case: คำถามและคำสำคัญที่ควรพบ
+            question_id: รหัสคำถาม
+            
+        Returns:
+            dict: ผลการทดสอบ
+        """
+        # ดึงข้อมูลที่เกี่ยวข้องโดยตรงจาก RAG service
+        docs = self.rag_service.retrieve_relevant_context(
+            test_case['query'],
+            self.subject_id,
+            question_id
+        )
+        
+        # คำนวณความแม่นยำ
+        found_keywords = 0
+        retrieved_text = " ".join([doc.page_content for doc in docs])
+        
+        # ตรวจสอบคำสำคัญที่พบ
+        for keyword in test_case['expected_keywords']:
+            if keyword in retrieved_text:
+                found_keywords += 1
+                print(f"  ✅ พบคำสำคัญ: {keyword}")
+            else:
+                print(f"  ❌ ไม่พบคำสำคัญ: {keyword}")
+        
+        precision = found_keywords / len(test_case['expected_keywords'])
+        
+        # บันทึกผลลัพธ์
+        result = {
+            "query": test_case['query'],
+            "precision": precision,
+            "found_keywords": found_keywords,
+            "total_keywords": len(test_case['expected_keywords']),
+            "retrieved_text": retrieved_text
+        }
+        
+        print(f"  ความแม่นยำ: {precision * 100:.2f}%")
+        return result
+    
+    def _test_retrieval_via_api(self, test_case, question_id):
+        """
+        ทดสอบการค้นคืนผ่าน API ด้วยการประเมินคำตอบ
+        
+        Args:
+            test_case: คำถามและคำสำคัญที่ควรพบ
+            question_id: รหัสคำถาม
+            
+        Returns:
+            dict: ผลการทดสอบ
+        """
+        # ใช้การประเมินคำตอบแทนเมื่อไม่สามารถเข้าถึง RAG service โดยตรง
+        sample_answer = "ไม่ทราบคำตอบ"
+        result = self.evaluate_answer(test_case['query'], sample_answer, question_id)
+        
+        if not result:
+            return None
+            
+        # ตรวจสอบคำสำคัญที่พบในผลการประเมิน
+        found_keywords = 0
+        for keyword in test_case['expected_keywords']:
+            if keyword in result['evaluation']:
+                found_keywords += 1
+                print(f"  ✅ พบคำสำคัญ: {keyword}")
+            else:
+                print(f"  ❌ ไม่พบคำสำคัญ: {keyword}")
+        
+        precision = found_keywords / len(test_case['expected_keywords'])
+        
+        # บันทึกผลลัพธ์
+        case_result = {
+            "query": test_case['query'],
+            "precision": precision,
+            "found_keywords": found_keywords,
+            "total_keywords": len(test_case['expected_keywords']),
+            "evaluation": result['evaluation']
+        }
+        
+        print(f"  ความแม่นยำ: {precision * 100:.2f}%")
+        return case_result
+    
+    def _process_retrieval_results(self, results):
+        """
+        ประมวลผลและบันทึกผลการทดสอบการค้นคืน
+        
+        Args:
+            results: ผลการทดสอบแต่ละคำถาม
+            
+        Returns:
+            dict: ผลสรุปการทดสอบ
+        """
         # คำนวณความแม่นยำเฉลี่ย
-        if results:
-            avg_precision = sum(r['precision'] for r in results) / len(results)
-            
-            # สรุปผล
-            summary = {
-                "status": "success",
-                "avg_precision": avg_precision,
-                "details": results
-            }
-            
-            print(f"\nความแม่นยำเฉลี่ยในการค้นคืน: {avg_precision * 100:.2f}%")
-            
-            # บันทึกผลการทดสอบ
-            self.test_results["retrieval_accuracy"] = summary
-            
-            return summary
-        else:
+        if not results:
             return {"status": "failed", "reason": "no_results"}
+            
+        avg_precision = sum(r['precision'] for r in results) / len(results)
+        
+        # สรุปผล
+        summary = {
+            "status": "success",
+            "avg_precision": avg_precision,
+            "details": results
+        }
+        
+        print(f"\nความแม่นยำเฉลี่ยในการค้นคืน: {avg_precision * 100:.2f}%")
+        
+        # บันทึกผลการทดสอบ
+        self.test_results["retrieval_accuracy"] = summary
+        
+        return summary
     
     def test_contextual_understanding(self):
         """
@@ -390,8 +569,28 @@ class RAGTester:
         print("\n=== ทดสอบความสามารถในการเข้าใจบริบท ===")
         question_id = "CONTEXT_TEST"
         
-        # เนื้อหาเฉลยเกี่ยวกับการทดสอบซอฟต์แวร์
-        answer_key_content = """
+        # เตรียมเนื้อหาเฉลยและอัปโหลด
+        answer_key_content = self._get_software_testing_content()
+        if not self.upload_answer_key(answer_key_content, question_id):
+            return {"status": "failed", "reason": "upload_failed"}
+        
+        # เตรียมคำถามสำหรับทดสอบ
+        test_cases = self._get_contextual_test_cases()
+        
+        # ทดสอบความเข้าใจบริบท
+        results = self._run_contextual_tests(test_cases, question_id)
+        
+        # ประมวลผลและบันทึกผลลัพธ์
+        return self._process_contextual_results(results)
+    
+    def _get_software_testing_content(self):
+        """
+        เตรียมเนื้อหาเกี่ยวกับการทดสอบซอฟต์แวร์สำหรับทดสอบความเข้าใจบริบท
+        
+        Returns:
+            str: เนื้อหาเฉลย
+        """
+        return """
         การทดสอบซอฟต์แวร์ (Software Testing)
         
         การทดสอบซอฟต์แวร์เป็นกระบวนการตรวจสอบคุณภาพของซอฟต์แวร์ เพื่อค้นหาข้อผิดพลาดและตรวจสอบว่าซอฟต์แวร์ตรงตามความต้องการหรือไม่
@@ -447,13 +646,15 @@ class RAGTester:
                - ทดสอบซ้ำหลังการเปลี่ยนแปลง
                - ตรวจสอบว่าการเปลี่ยนแปลงไม่กระทบการทำงานเดิม
         """
+    
+    def _get_contextual_test_cases(self):
+        """
+        เตรียมกรณีทดสอบสำหรับความเข้าใจบริบท
         
-        # อัปโหลดเฉลย
-        if not self.upload_answer_key(answer_key_content, question_id):
-            return {"status": "failed", "reason": "upload_failed"}
-        
-        # คำถามสำหรับทดสอบความเข้าใจบริบท
-        test_cases = [
+        Returns:
+            list: รายการกรณีทดสอบ
+        """
+        return [
             {
                 "question": "อธิบายข้อแตกต่างระหว่างการทดสอบแบบกล่องดำและกล่องขาว",
                 "student_answer": "ผมคิดว่าทั้งสองแบบเป็นการทดสอบเหมือนกัน ไม่มีความแตกต่างกัน",
@@ -470,7 +671,18 @@ class RAGTester:
                 "expected_context": ["การถดถอย", "Regression Testing", "ทดสอบซ้ำ", "การเปลี่ยนแปลง", "กระทบการทำงานเดิม"]
             }
         ]
+    
+    def _run_contextual_tests(self, test_cases, question_id):
+        """
+        ทดสอบความเข้าใจบริบทด้วยกรณีทดสอบต่างๆ
         
+        Args:
+            test_cases: รายการกรณีทดสอบ
+            question_id: รหัสคำถาม
+            
+        Returns:
+            list: ผลการทดสอบแต่ละกรณี
+        """
         results = []
         
         for i, test_case in enumerate(test_cases, 1):
@@ -486,56 +698,84 @@ class RAGTester:
             )
             
             if result:
-                # ตรวจสอบว่ามีการดึงข้อมูลจากบริบทที่ถูกต้อง
-                context_score = 0
-                for keyword in test_case['expected_context']:
-                    if keyword in result['evaluation']:
-                        context_score += 1
-                        print(f"  ✅ พบคำสำคัญในบริบท: {keyword}")
-                    else:
-                        print(f"  ❌ ไม่พบคำสำคัญในบริบท: {keyword}")
-                
-                context_accuracy = context_score / len(test_case['expected_context']) if test_case['expected_context'] else 0
-                
-                # บันทึกผลลัพธ์
-                case_result = {
-                    "question": test_case['question'],
-                    "student_answer": test_case['student_answer'],
-                    "evaluation": result['evaluation'],
-                    "score": result['score'],
-                    "context_accuracy": context_accuracy,
-                    "processing_time": result.get('processing_time', 0)
-                }
-                
+                # วิเคราะห์ผลการประเมินและเก็บผลลัพธ์
+                case_result = self._analyze_contextual_result(test_case, result)
                 results.append(case_result)
-                print(f"  ความถูกต้องของบริบท: {context_accuracy * 100:.2f}%")
-                print(f"  คะแนนที่ได้: {result['score']}/10")
         
-        # คำนวณความแม่นยำเฉลี่ย
-        if results:
-            avg_context_accuracy = sum(r['context_accuracy'] for r in results) / len(results)
-            avg_score = sum(r['score'] for r in results) / len(results)
-            avg_time = sum(r.get('processing_time', 0) for r in results) / len(results)
+        return results
+    
+    def _analyze_contextual_result(self, test_case, result):
+        """
+        วิเคราะห์ผลการประเมินความเข้าใจบริบท
+        
+        Args:
+            test_case: กรณีทดสอบ
+            result: ผลการประเมิน
             
-            # สรุปผล
-            summary = {
-                "status": "success",
-                "avg_context_accuracy": avg_context_accuracy,
-                "avg_score": avg_score,
-                "avg_processing_time": avg_time,
-                "details": results
-            }
+        Returns:
+            dict: ผลการวิเคราะห์
+        """
+        # ตรวจสอบการพบคำสำคัญในบริบท
+        context_score = 0
+        for keyword in test_case['expected_context']:
+            if keyword in result['evaluation']:
+                context_score += 1
+                print(f"  ✅ พบคำสำคัญในบริบท: {keyword}")
+            else:
+                print(f"  ❌ ไม่พบคำสำคัญในบริบท: {keyword}")
+        
+        context_accuracy = context_score / len(test_case['expected_context']) if test_case['expected_context'] else 0
+        
+        # บันทึกผลลัพธ์
+        case_result = {
+            "question": test_case['question'],
+            "student_answer": test_case['student_answer'],
+            "evaluation": result['evaluation'],
+            "score": result['score'],
+            "context_accuracy": context_accuracy,
+            "processing_time": result.get('processing_time', 0)
+        }
+        
+        print(f"  ความถูกต้องของบริบท: {context_accuracy * 100:.2f}%")
+        print(f"  คะแนนที่ได้: {result['score']}/10")
+        
+        return case_result
+    
+    def _process_contextual_results(self, results):
+        """
+        ประมวลผลและบันทึกผลการทดสอบความเข้าใจบริบท
+        
+        Args:
+            results: ผลการทดสอบแต่ละกรณี
             
-            print(f"\nความถูกต้องของบริบทเฉลี่ย (Avg Context Accuracy): {avg_context_accuracy * 100:.2f}%")
-            print(f"คะแนนเฉลี่ย (Avg Score): {avg_score:.2f}/10")
-            print(f"เวลาประมวลผลเฉลี่ย (Avg Processing Time): {avg_time:.2f} วินาที")
-            
-            # บันทึกผลการทดสอบ
-            self.test_results["contextual_understanding"] = summary
-            
-            return summary
-        else:
+        Returns:
+            dict: ผลสรุปการทดสอบ
+        """
+        # คำนวณค่าเฉลี่ย
+        if not results:
             return {"status": "failed", "reason": "no_results"}
+            
+        avg_context_accuracy = sum(r['context_accuracy'] for r in results) / len(results)
+        avg_score = sum(r['score'] for r in results) / len(results)
+        avg_time = sum(r.get('processing_time', 0) for r in results) / len(results)
+        
+        # สรุปผล
+        summary = {
+            "status": "success",
+            "avg_context_accuracy": avg_context_accuracy,
+            "avg_score": avg_score,
+            "avg_processing_time": avg_time,
+            "details": results
+        }
+        
+        print(f"\nความถูกต้องของบริบทเฉลี่ย (Avg Context Accuracy): {avg_context_accuracy * 100:.2f}%")
+        print(f"คะแนนเฉลี่ย (Avg Score): {avg_score:.2f}/10")
+        print(f"เวลาประมวลผลเฉลี่ย (Avg Processing Time): {avg_time:.2f} วินาที")
+        
+        # บันทึกผลการทดสอบ
+        self.test_results["contextual_understanding"] = summary
+        
+        return summary
     
     def test_thai_language(self):
         """
@@ -547,8 +787,28 @@ class RAGTester:
         print("\n=== ทดสอบประสิทธิภาพกับภาษาไทย ===")
         question_id = "THAI_TEST"
         
-        # เนื้อหาเฉลยภาษาไทย
-        answer_key_content = """
+        # เตรียมเนื้อหาเฉลยและอัปโหลด
+        answer_key_content = self._get_ui_design_content()
+        if not self.upload_answer_key(answer_key_content, question_id):
+            return {"status": "failed", "reason": "upload_failed"}
+        
+        # เตรียมคำถามสำหรับทดสอบ
+        test_cases = self._get_thai_language_test_cases()
+        
+        # ทดสอบประสิทธิภาพกับภาษาไทย
+        results = self._run_thai_language_tests(test_cases, question_id)
+        
+        # ประมวลผลและบันทึกผลลัพธ์
+        return self._process_thai_language_results(results)
+    
+    def _get_ui_design_content(self):
+        """
+        เตรียมเนื้อหาเกี่ยวกับการออกแบบ UI สำหรับทดสอบประสิทธิภาพกับภาษาไทย
+        
+        Returns:
+            str: เนื้อหาเฉลย
+        """
+        return """
         หลักการออกแบบส่วนติดต่อผู้ใช้ (User Interface Design Principles)
         
         การออกแบบส่วนติดต่อผู้ใช้ (UI) ที่ดีจะช่วยให้ผู้ใช้สามารถใช้งานซอฟต์แวร์ได้อย่างมีประสิทธิภาพและพึงพอใจ โดยมีหลักการสำคัญดังนี้:
@@ -593,13 +853,15 @@ class RAGTester:
            - ลำดับขั้นตอนสอดคล้องกับการทำงานในโลกจริง
            - ใช้การเปรียบเทียบกับสิ่งที่มีอยู่ในชีวิตประจำวัน
         """
+    
+    def _get_thai_language_test_cases(self):
+        """
+        เตรียมกรณีทดสอบสำหรับประสิทธิภาพกับภาษาไทย
         
-        # อัปโหลดเฉลย
-        if not self.upload_answer_key(answer_key_content, question_id):
-            return {"status": "failed", "reason": "upload_failed"}
-        
-        # คำถามสำหรับทดสอบภาษาไทย
-        test_cases = [
+        Returns:
+            list: รายการกรณีทดสอบ
+        """
+        return [
             {
                 "question": "อธิบายหลักการออกแบบ UI ที่เกี่ยวกับความเรียบง่ายและความสอดคล้อง",
                 "student_answer": "ความเรียบง่ายคือการออกแบบที่ไม่ซับซ้อน ส่วนความสอดคล้องคือการใช้รูปแบบที่เหมือนกันตลอดทั้งระบบ",
@@ -616,7 +878,18 @@ class RAGTester:
                 "expected_context": ["ป้องกันข้อผิดพลาด", "Error Prevention", "ยืนยัน", "ดำเนินการที่สำคัญ", "จำกัดตัวเลือก"]
             }
         ]
+    
+    def _run_thai_language_tests(self, test_cases, question_id):
+        """
+        ทดสอบประสิทธิภาพกับภาษาไทยด้วยกรณีทดสอบต่างๆ
         
+        Args:
+            test_cases: รายการกรณีทดสอบ
+            question_id: รหัสคำถาม
+            
+        Returns:
+            list: ผลการทดสอบแต่ละกรณี
+        """
         results = []
         
         for i, test_case in enumerate(test_cases, 1):
@@ -632,66 +905,106 @@ class RAGTester:
             )
             
             if result:
-                # ตรวจสอบการเข้าใจภาษาไทย
-                context_score = 0
-                for keyword in test_case['expected_context']:
-                    if keyword in result['evaluation']:
-                        context_score += 1
-                        print(f"  ✅ พบคำสำคัญในภาษาไทย: {keyword}")
-                    else:
-                        print(f"  ❌ ไม่พบคำสำคัญในภาษาไทย: {keyword}")
-                
-                thai_accuracy = context_score / len(test_case['expected_context']) if test_case['expected_context'] else 0
-                
-                # ตรวจสอบการใช้ภาษาไทยในการประเมิน
-                thai_chars = len([c for c in result['evaluation'] if ord(c) > 3584 and ord(c) < 3711])
-                total_chars = len(result['evaluation'])
-                thai_ratio = thai_chars / total_chars if total_chars > 0 else 0
-                
-                # บันทึกผลลัพธ์
-                case_result = {
-                    "question": test_case['question'],
-                    "student_answer": test_case['student_answer'],
-                    "evaluation": result['evaluation'],
-                    "score": result['score'],
-                    "thai_accuracy": thai_accuracy,
-                    "thai_ratio": thai_ratio,
-                    "processing_time": result.get('processing_time', 0)
-                }
-                
+                # วิเคราะห์ผลการประเมินและเก็บผลลัพธ์
+                case_result = self._analyze_thai_language_result(test_case, result)
                 results.append(case_result)
-                print(f"  ความถูกต้องในการเข้าใจภาษาไทย: {thai_accuracy * 100:.2f}%")
-                print(f"  สัดส่วนการใช้ภาษาไทยในการประเมิน: {thai_ratio * 100:.2f}%")
-                print(f"  คะแนนที่ได้: {result['score']}/10")
         
-        # คำนวณความแม่นยำเฉลี่ย
-        if results:
-            avg_thai_accuracy = sum(r['thai_accuracy'] for r in results) / len(results)
-            avg_thai_ratio = sum(r['thai_ratio'] for r in results) / len(results)
-            avg_score = sum(r['score'] for r in results) / len(results)
-            avg_time = sum(r.get('processing_time', 0) for r in results) / len(results)
+        return results
+    
+    def _analyze_thai_language_result(self, test_case, result):
+        """
+        วิเคราะห์ผลการประเมินประสิทธิภาพกับภาษาไทย
+        
+        Args:
+            test_case: กรณีทดสอบ
+            result: ผลการประเมิน
             
-            # สรุปผล
-            summary = {
-                "status": "success",
-                "avg_thai_accuracy": avg_thai_accuracy,
-                "avg_thai_ratio": avg_thai_ratio,
-                "avg_score": avg_score,
-                "avg_processing_time": avg_time,
-                "details": results
-            }
+        Returns:
+            dict: ผลการวิเคราะห์
+        """
+        # ตรวจสอบการพบคำสำคัญในภาษาไทย
+        context_score = 0
+        for keyword in test_case['expected_context']:
+            if keyword in result['evaluation']:
+                context_score += 1
+                print(f"  ✅ พบคำสำคัญในภาษาไทย: {keyword}")
+            else:
+                print(f"  ❌ ไม่พบคำสำคัญในภาษาไทย: {keyword}")
+        
+        thai_accuracy = context_score / len(test_case['expected_context']) if test_case['expected_context'] else 0
+        
+        # ตรวจสอบการใช้ภาษาไทยในการประเมิน
+        thai_chars = self._count_thai_characters(result['evaluation'])
+        total_chars = len(result['evaluation'])
+        thai_ratio = thai_chars / total_chars if total_chars > 0 else 0
+        
+        # บันทึกผลลัพธ์
+        case_result = {
+            "question": test_case['question'],
+            "student_answer": test_case['student_answer'],
+            "evaluation": result['evaluation'],
+            "score": result['score'],
+            "thai_accuracy": thai_accuracy,
+            "thai_ratio": thai_ratio,
+            "processing_time": result.get('processing_time', 0)
+        }
+        
+        print(f"  ความถูกต้องในการเข้าใจภาษาไทย: {thai_accuracy * 100:.2f}%")
+        print(f"  สัดส่วนการใช้ภาษาไทยในการประเมิน: {thai_ratio * 100:.2f}%")
+        print(f"  คะแนนที่ได้: {result['score']}/10")
+        
+        return case_result
+    
+    def _count_thai_characters(self, text):
+        """
+        นับจำนวนตัวอักษรภาษาไทยในข้อความ
+        
+        Args:
+            text: ข้อความที่ต้องการนับ
             
-            print(f"\nความถูกต้องในการเข้าใจภาษาไทยเฉลี่ย (Avg Thai Accuracy): {avg_thai_accuracy * 100:.2f}%")
-            print(f"สัดส่วนการใช้ภาษาไทยในการประเมินเฉลี่ย (Avg Thai Ratio): {avg_thai_ratio * 100:.2f}%")
-            print(f"คะแนนเฉลี่ย (Avg Score): {avg_score:.2f}/10")
-            print(f"เวลาประมวลผลเฉลี่ย (Avg Processing Time): {avg_time:.2f} วินาที")
+        Returns:
+            int: จำนวนตัวอักษรภาษาไทย
+        """
+        return len([c for c in text if ord(c) > 3584 and ord(c) < 3711])
+    
+    def _process_thai_language_results(self, results):
+        """
+        ประมวลผลและบันทึกผลการทดสอบประสิทธิภาพกับภาษาไทย
+        
+        Args:
+            results: ผลการทดสอบแต่ละกรณี
             
-            # บันทึกผลการทดสอบ
-            self.test_results["thai_language"] = summary
-            
-            return summary
-        else:
+        Returns:
+            dict: ผลสรุปการทดสอบ
+        """
+        # คำนวณค่าเฉลี่ย
+        if not results:
             return {"status": "failed", "reason": "no_results"}
+            
+        avg_thai_accuracy = sum(r['thai_accuracy'] for r in results) / len(results)
+        avg_thai_ratio = sum(r['thai_ratio'] for r in results) / len(results)
+        avg_score = sum(r['score'] for r in results) / len(results)
+        avg_time = sum(r.get('processing_time', 0) for r in results) / len(results)
+        
+        # สรุปผล
+        summary = {
+            "status": "success",
+            "avg_thai_accuracy": avg_thai_accuracy,
+            "avg_thai_ratio": avg_thai_ratio,
+            "avg_score": avg_score,
+            "avg_processing_time": avg_time,
+            "details": results
+        }
+        
+        print(f"\nความถูกต้องในการเข้าใจภาษาไทยเฉลี่ย: {avg_thai_accuracy * 100:.2f}%")
+        print(f"สัดส่วนการใช้ภาษาไทยในการประเมินเฉลี่ย: {avg_thai_ratio * 100:.2f}%")
+        print(f"คะแนนเฉลี่ย: {avg_score:.2f}/10")
+        print(f"เวลาประมวลผลเฉลี่ย: {avg_time:.2f} วินาที")
+        
+        # บันทึกผลการทดสอบ
+        self.test_results["thai_language"] = summary
+        
+        return summary
     
     def test_answer_variability(self):
         """
@@ -703,8 +1016,28 @@ class RAGTester:
         print("\n=== ทดสอบการประเมินคำตอบที่มีความแตกต่าง ===")
         question_id = "VARIABILITY_TEST"
         
-        # เนื้อหาเฉลยเกี่ยวกับ Design Patterns
-        answer_key_content = """
+        # เตรียมเนื้อหาเฉลยและอัปโหลด
+        answer_key_content = self._get_design_patterns_content()
+        if not self.upload_answer_key(answer_key_content, question_id):
+            return {"status": "failed", "reason": "upload_failed"}
+        
+        # เตรียมคำถามและคำตอบสำหรับทดสอบ
+        question, test_answers = self._get_variable_answers_test_cases()
+        
+        # ทดสอบการประเมินคำตอบที่แตกต่างกัน
+        results = self._run_answer_variability_tests(question, test_answers, question_id)
+        
+        # ประมวลผลและบันทึกผลลัพธ์
+        return self._process_answer_variability_results(results)
+    
+    def _get_design_patterns_content(self):
+        """
+        เตรียมเนื้อหาเกี่ยวกับ Design Patterns สำหรับทดสอบการประเมินคำตอบที่มีความแตกต่าง
+        
+        Returns:
+            str: เนื้อหาเฉลย
+        """
+        return """
         รูปแบบการออกแบบ (Design Patterns) ในวิศวกรรมซอฟต์แวร์
         
         รูปแบบการออกแบบ คือ วิธีการแก้ปัญหาทั่วไปที่เกิดขึ้นซ้ำๆ ในการออกแบบซอฟต์แวร์ โดยเป็นแนวทางหรือแม่แบบที่สามารถนำไปปรับใช้กับสถานการณ์ต่างๆ ได้
@@ -765,15 +1098,16 @@ class RAGTester:
                - สามารถจัดคิว หรือบันทึกคำขอได้
                - รองรับการเลิกทำ (undo)
         """
+    
+    def _get_variable_answers_test_cases(self):
+        """
+        เตรียมคำถามและคำตอบที่มีความแตกต่างกันสำหรับทดสอบการประเมิน
         
-        # อัปโหลดเฉลย
-        if not self.upload_answer_key(answer_key_content, question_id):
-            return {"status": "failed", "reason": "upload_failed"}
-        
-        # คำถามสำหรับทดสอบ
+        Returns:
+            tuple: (คำถาม, รายการคำตอบ)
+        """
         question = "อธิบาย Singleton Pattern และการนำไปใช้งาน"
         
-        # คำตอบที่แตกต่างกัน
         test_answers = [
             {
                 "description": "คำตอบที่ถูกต้องและสมบูรณ์",
@@ -827,6 +1161,20 @@ class RAGTester:
             }
         ]
         
+        return question, test_answers
+    
+    def _run_answer_variability_tests(self, question, test_answers, question_id):
+        """
+        ทดสอบการประเมินคำตอบที่มีความแตกต่างกัน
+        
+        Args:
+            question: คำถาม
+            test_answers: รายการคำตอบที่แตกต่างกัน
+            question_id: รหัสคำถาม
+            
+        Returns:
+            list: ผลการทดสอบแต่ละคำตอบ
+        """
         results = []
         
         for i, test_case in enumerate(test_answers, 1):
@@ -854,44 +1202,68 @@ class RAGTester:
                 print(f"  คะแนนที่ได้: {result['score']}/10")
                 print(f"  เวลาที่ใช้: {result.get('processing_time', 0):.2f} วินาที")
         
+        return results
+    
+    def _process_answer_variability_results(self, results):
+        """
+        ประมวลผลและบันทึกผลการทดสอบการประเมินคำตอบที่มีความแตกต่าง
+        
+        Args:
+            results: ผลการทดสอบแต่ละคำตอบ
+            
+        Returns:
+            dict: ผลสรุปการทดสอบ
+        """
         # วิเคราะห์ความสอดคล้องของการประเมิน
-        if len(results) >= 2:
-            # ตรวจสอบว่าคะแนนสอดคล้องกับความคาดหวังหรือไม่
-            expected_order = [0, 1, 2, 3]  # คำตอบที่ดีที่สุดควรได้คะแนนมากกว่า
-            actual_order = sorted(range(len(results)), key=lambda i: results[i]['score'], reverse=True)
-            
-            order_correct = (expected_order == actual_order)
-            
-            # คำนวณความแตกต่างของคะแนน
-            score_diffs = []
-            for i in range(len(results) - 1):
-                for j in range(i + 1, len(results)):
-                    score_diffs.append(abs(results[i]['score'] - results[j]['score']))
-            
-            avg_score_diff = sum(score_diffs) / len(score_diffs) if score_diffs else 0
-            
-            # คำนวณเวลาเฉลี่ย
-            avg_time = sum(r.get('processing_time', 0) for r in results) / len(results)
-            
-            # สรุปผล
-            summary = {
-                "status": "success",
-                "order_correct": order_correct,
-                "avg_score_diff": avg_score_diff,
-                "avg_processing_time": avg_time,
-                "details": results
-            }
-            
-            print(f"\nการจัดลำดับคะแนนถูกต้อง (Correct Order): {'✅ Yes' if order_correct else '❌ No'}")
-            print(f"ความแตกต่างของคะแนนเฉลี่ย (Avg Score Difference): {avg_score_diff:.2f}")
-            print(f"เวลาประมวลผลเฉลี่ย (Avg Processing Time): {avg_time:.2f} วินาที")
-            
-            # บันทึกผลการทดสอบ
-            self.test_results["answer_variability"] = summary
-            
-            return summary
-        else:
+        if len(results) < 2:
             return {"status": "failed", "reason": "insufficient_results"}
+            
+        # ตรวจสอบว่าคะแนนสอดคล้องกับความคาดหวังหรือไม่
+        expected_order = [0, 1, 2, 3]  # คำตอบที่ดีที่สุดควรได้คะแนนมากกว่า
+        actual_order = sorted(range(len(results)), key=lambda i: results[i]['score'], reverse=True)
+        
+        order_correct = (expected_order == actual_order)
+        
+        # คำนวณความแตกต่างของคะแนน
+        score_diffs = self._calculate_score_differences(results)
+        avg_score_diff = sum(score_diffs) / len(score_diffs) if score_diffs else 0
+        
+        # คำนวณเวลาเฉลี่ย
+        avg_time = sum(r.get('processing_time', 0) for r in results) / len(results)
+        
+        # สรุปผล
+        summary = {
+            "status": "success",
+            "order_correct": order_correct,
+            "avg_score_diff": avg_score_diff,
+            "avg_processing_time": avg_time,
+            "details": results
+        }
+        
+        print(f"\nการจัดลำดับคะแนนถูกต้อง: {'✅ Yes' if order_correct else '❌ No'}")
+        print(f"ความแตกต่างของคะแนนเฉลี่ย: {avg_score_diff:.2f}")
+        print(f"เวลาประมวลผลเฉลี่ย: {avg_time:.2f} วินาที")
+        
+        # บันทึกผลการทดสอบ
+        self.test_results["answer_variability"] = summary
+        
+        return summary
+    
+    def _calculate_score_differences(self, results):
+        """
+        คำนวณความแตกต่างของคะแนนระหว่างผลลัพธ์
+        
+        Args:
+            results: ผลการทดสอบ
+            
+        Returns:
+            list: ความแตกต่างของคะแนน
+        """
+        score_diffs = []
+        for i in range(len(results) - 1):
+            for j in range(i + 1, len(results)):
+                score_diffs.append(abs(results[i]['score'] - results[j]['score']))
+        return score_diffs
     
     def test_performance(self):
         """
@@ -903,8 +1275,28 @@ class RAGTester:
         print("\n=== ทดสอบความเร็วและการใช้ทรัพยากร ===")
         question_id = "PERFORMANCE_TEST"
         
-        # เนื้อหาเฉลยสั้นๆ
-        answer_key_content = """
+        # เตรียมเนื้อหาเฉลยและอัปโหลด
+        answer_key_content = self._get_agile_content()
+        if not self.upload_answer_key(answer_key_content, question_id):
+            return {"status": "failed", "reason": "upload_failed"}
+        
+        # เตรียมคำถามและคำตอบสำหรับทดสอบ
+        test_cases = self._get_performance_test_cases()
+        
+        # ทดสอบความเร็ว
+        results = self._run_performance_tests(test_cases, question_id)
+        
+        # ประมวลผลและบันทึกผลลัพธ์
+        return self._process_performance_results(results)
+    
+    def _get_agile_content(self):
+        """
+        เตรียมเนื้อหาเกี่ยวกับ Agile สำหรับทดสอบความเร็ว
+        
+        Returns:
+            str: เนื้อหาเฉลย
+        """
+        return """
         แนวคิดการพัฒนาซอฟต์แวร์แบบอไจล์ (Agile Software Development)
         
         การพัฒนาซอฟต์แวร์แบบอไจล์เป็นแนวทางในการพัฒนาซอฟต์แวร์ที่เน้นความยืดหยุ่น การปรับตัว และการส่งมอบอย่างต่อเนื่อง โดยมีหลักการสำคัญตาม Agile Manifesto ดังนี้:
@@ -919,20 +1311,32 @@ class RAGTester:
         - Kanban: เน้นการมองเห็นงาน จำกัด WIP (Work in Progress) และการไหลของงาน
         - XP (Extreme Programming): เน้นการเขียนทดสอบก่อน (TDD) การทำ Pair Programming และการปรับปรุงโค้ดอย่างต่อเนื่อง
         """
+    
+    def _get_performance_test_cases(self):
+        """
+        เตรียมกรณีทดสอบสำหรับทดสอบความเร็ว
         
-        # อัปโหลดเฉลย
-        if not self.upload_answer_key(answer_key_content, question_id):
-            return {"status": "failed", "reason": "upload_failed"}
-        
-        # คำถามและคำตอบสำหรับทดสอบ
-        test_cases = [
+        Returns:
+            list: รายการกรณีทดสอบ
+        """
+        return [
             {
                 "question": "อธิบายหลักการสำคัญของ Agile Manifesto",
                 "answer": "Agile Manifesto เน้นบุคคลและปฏิสัมพันธ์มากกว่ากระบวนการ, ซอฟต์แวร์ที่ทำงานได้มากกว่าเอกสาร, การร่วมมือกับลูกค้ามากกว่าสัญญา, และการตอบสนองต่อการเปลี่ยนแปลงมากกว่าการทำตามแผน"
             }
         ]
+    
+    def _run_performance_tests(self, test_cases, question_id):
+        """
+        ทดสอบความเร็วโดยวัดเวลาการประเมินคำตอบ
         
-        # เก็บผลการทดสอบความเร็ว
+        Args:
+            test_cases: รายการกรณีทดสอบ
+            question_id: รหัสคำถาม
+            
+        Returns:
+            list: ผลการทดสอบเวลา
+        """
         processing_times = []
         results = []
         
@@ -943,10 +1347,7 @@ class RAGTester:
             print(f"\nรอบที่ {i+1}/5:")
             print(f"คำถาม: {test_case['question']}")
             
-            # จับเวลาการประมวลผล
-            start_time = time.time()
-            
-            # ประเมินคำตอบ
+            # ประเมินคำตอบและบันทึกเวลา
             result = self.evaluate_answer(
                 test_case['question'],
                 test_case['answer'],
@@ -954,8 +1355,8 @@ class RAGTester:
             )
             
             if result:
-                # คำนวณเวลาที่ใช้
-                elapsed_time = time.time() - start_time
+                # นำผลลัพธ์และเวลามาบันทึก
+                elapsed_time = result.get('processing_time', 0)
                 processing_times.append(elapsed_time)
                 
                 # บันทึกผลลัพธ์
@@ -970,35 +1371,61 @@ class RAGTester:
                 results.append(case_result)
                 print(f"  คะแนนที่ได้: {result['score']}/10")
                 print(f"  เวลาที่ใช้: {elapsed_time:.2f} วินาที")
-                
+        
+        return results
+    
+    def _process_performance_results(self, results):
+        """
+        ประมวลผลและบันทึกผลการทดสอบความเร็ว
+        
+        Args:
+            results: ผลการทดสอบแต่ละครั้ง
+            
+        Returns:
+            dict: ผลสรุปการทดสอบ
+        """
         # คำนวณสถิติของเวลาที่ใช้
-        if processing_times:
-            avg_time = sum(processing_times) / len(processing_times)
-            min_time = min(processing_times)
-            max_time = max(processing_times)
-            std_dev = (sum((t - avg_time) ** 2 for t in processing_times) / len(processing_times)) ** 0.5
-            
-            # สรุปผล
-            summary = {
-                "status": "success",
-                "avg_processing_time": avg_time,
-                "min_processing_time": min_time,
-                "max_processing_time": max_time,
-                "std_dev_processing_time": std_dev,
-                "details": results
-            }
-            
-            print(f"\nเวลาประมวลผลเฉลี่ย (Avg Processing Time): {avg_time:.2f} วินาที")
-            print(f"เวลาประมวลผลเร็วที่สุด (Min Processing Time): {min_time:.2f} วินาที")
-            print(f"เวลาประมวลผลช้าที่สุด (Max Processing Time): {max_time:.2f} วินาที")
-            print(f"ส่วนเบี่ยงเบนมาตรฐานของเวลา (Std Dev): {std_dev:.2f} วินาที")
-            
-            # บันทึกผลการทดสอบ
-            self.test_results["performance"] = summary
-            
-            return summary
-        else:
+        if not results:
             return {"status": "failed", "reason": "no_results"}
+            
+        processing_times = [r['processing_time'] for r in results]
+        avg_time = sum(processing_times) / len(processing_times)
+        min_time = min(processing_times)
+        max_time = max(processing_times)
+        std_dev = self._calculate_standard_deviation(processing_times, avg_time)
+        
+        # สรุปผล
+        summary = {
+            "status": "success",
+            "avg_processing_time": avg_time,
+            "min_processing_time": min_time,
+            "max_processing_time": max_time,
+            "std_dev_processing_time": std_dev,
+            "details": results
+        }
+        
+        print(f"\nเวลาประมวลผลเฉลี่ย: {avg_time:.2f} วินาที")
+        print(f"เวลาประมวลผลเร็วที่สุด: {min_time:.2f} วินาที")
+        print(f"เวลาประมวลผลช้าที่สุด: {max_time:.2f} วินาที")
+        print(f"ส่วนเบี่ยงเบนมาตรฐานของเวลา: {std_dev:.2f} วินาที")
+        
+        # บันทึกผลการทดสอบ
+        self.test_results["performance"] = summary
+        
+        return summary
+    
+    def _calculate_standard_deviation(self, values, mean):
+        """
+        คำนวณส่วนเบี่ยงเบนมาตรฐาน
+        
+        Args:
+            values: ค่าที่ต้องการคำนวณ
+            mean: ค่าเฉลี่ย
+            
+        Returns:
+            float: ส่วนเบี่ยงเบนมาตรฐาน
+        """
+        return (sum((x - mean) ** 2 for x in values) / len(values)) ** 0.5
     
     def generate_summary_report(self):
         """
@@ -1011,78 +1438,162 @@ class RAGTester:
         print(" " * 20 + "สรุปผลการทดสอบ RAG")
         print("=" * 60)
         
-        # สร้างรายงานสรุป
-        summary = {
+        # สร้างข้อมูลพื้นฐานของรายงาน
+        summary = self._create_report_base()
+        
+        # คำนวณคะแนนแต่ละด้าน
+        scores = self._calculate_test_scores()
+        
+        # คำนวณคะแนนรวมและกำหนดเกรด
+        total_score = sum(scores.values()) / len(scores)
+        scores["total"] = total_score
+        grade = self._assign_grade(total_score)
+        
+        # เพิ่มคะแนนและเกรดในรายงาน
+        summary["scores"] = scores
+        summary["grade"] = grade
+        
+        # แสดงผลสรุปให้ผู้ใช้
+        self._display_summary_report(scores, grade)
+        
+        # บันทึกรายงานเป็นไฟล์
+        self._save_summary_report(summary)
+        
+        # สร้างรายงานกราฟ
+        self.generate_graphs(scores)
+        
+        return summary
+    
+    def _create_report_base(self):
+        """
+        สร้างข้อมูลพื้นฐานของรายงาน
+        
+        Returns:
+            dict: ข้อมูลพื้นฐานของรายงาน
+        """
+        return {
             "test_id": self.subject_id,
             "test_date": self.test_date,
             "results": self.test_results
         }
+    
+    def _calculate_test_scores(self):
+        """
+        คำนวณคะแนนแต่ละด้านของการทดสอบ
         
-        # คำนวณคะแนนรวม
+        Returns:
+            dict: คะแนนแต่ละด้าน
+        """
         scores = {}
         
         # 1. ความแม่นยำในการค้นคืน
-        if "retrieval_accuracy" in self.test_results and self.test_results["retrieval_accuracy"].get("status") == "success":
-            scores["retrieval_accuracy"] = self.test_results["retrieval_accuracy"]["avg_precision"] * 100
-        else:
-            scores["retrieval_accuracy"] = 0
+        scores["retrieval_accuracy"] = self._get_retrieval_accuracy_score()
         
         # 2. ความเข้าใจบริบท
-        if "contextual_understanding" in self.test_results and self.test_results["contextual_understanding"].get("status") == "success":
-            scores["contextual_understanding"] = self.test_results["contextual_understanding"]["avg_context_accuracy"] * 100
-        else:
-            scores["contextual_understanding"] = 0
+        scores["contextual_understanding"] = self._get_contextual_understanding_score()
         
         # 3. ประสิทธิภาพกับภาษาไทย
-        if "thai_language" in self.test_results and self.test_results["thai_language"].get("status") == "success":
-            scores["thai_language"] = self.test_results["thai_language"]["avg_thai_accuracy"] * 100
-        else:
-            scores["thai_language"] = 0
+        scores["thai_language"] = self._get_thai_language_score()
         
         # 4. การประเมินคำตอบที่แตกต่าง
-        if "answer_variability" in self.test_results and self.test_results["answer_variability"].get("status") == "success":
-            scores["answer_variability"] = 100 if self.test_results["answer_variability"]["order_correct"] else 50
-        else:
-            scores["answer_variability"] = 0
+        scores["answer_variability"] = self._get_answer_variability_score()
         
         # 5. ประสิทธิภาพด้านความเร็ว
+        scores["performance"] = self._get_performance_score()
+        
+        return scores
+    
+    def _get_retrieval_accuracy_score(self):
+        """
+        คำนวณคะแนนความแม่นยำในการค้นคืน
+        
+        Returns:
+            float: คะแนนความแม่นยำในการค้นคืน
+        """
+        if "retrieval_accuracy" in self.test_results and self.test_results["retrieval_accuracy"].get("status") == "success":
+            return self.test_results["retrieval_accuracy"]["avg_precision"] * 100
+        return 0
+    
+    def _get_contextual_understanding_score(self):
+        """
+        คำนวณคะแนนความเข้าใจบริบท
+        
+        Returns:
+            float: คะแนนความเข้าใจบริบท
+        """
+        if "contextual_understanding" in self.test_results and self.test_results["contextual_understanding"].get("status") == "success":
+            return self.test_results["contextual_understanding"]["avg_context_accuracy"] * 100
+        return 0
+    
+    def _get_thai_language_score(self):
+        """
+        คำนวณคะแนนประสิทธิภาพกับภาษาไทย
+        
+        Returns:
+            float: คะแนนประสิทธิภาพกับภาษาไทย
+        """
+        if "thai_language" in self.test_results and self.test_results["thai_language"].get("status") == "success":
+            return self.test_results["thai_language"]["avg_thai_accuracy"] * 100
+        return 0
+    
+    def _get_answer_variability_score(self):
+        """
+        คำนวณคะแนนการประเมินคำตอบที่แตกต่าง
+        
+        Returns:
+            float: คะแนนการประเมินคำตอบที่แตกต่าง
+        """
+        if "answer_variability" in self.test_results and self.test_results["answer_variability"].get("status") == "success":
+            return 100 if self.test_results["answer_variability"]["order_correct"] else 50
+        return 0
+    
+    def _get_performance_score(self):
+        """
+        คำนวณคะแนนประสิทธิภาพด้านความเร็ว
+        
+        Returns:
+            float: คะแนนประสิทธิภาพด้านความเร็ว
+        """
         if "performance" in self.test_results and self.test_results["performance"].get("status") == "success":
-            # ให้คะแนนตามเวลาที่ใช้ (ยิ่งเร็วยิ่งได้คะแนนมาก, โดยกำหนดเกณฑ์ไว้ที่ 3 วินาที = 100 คะแนน)
             avg_time = self.test_results["performance"]["avg_processing_time"]
             if avg_time <= 3:
-                perf_score = 100
+                return 100
             elif avg_time <= 5:
-                perf_score = 80
+                return 80
             elif avg_time <= 10:
-                perf_score = 60
+                return 60
             else:
-                perf_score = 40
-            scores["performance"] = perf_score
-        else:
-            scores["performance"] = 0
+                return 40
+        return 0
+    
+    def _assign_grade(self, total_score):
+        """
+        กำหนดเกรดตามคะแนนรวม
         
-        # คำนวณคะแนนรวม
-        total_score = sum(scores.values()) / len(scores)
-        scores["total"] = total_score
-        
-        # เพิ่มคะแนนในรายงาน
-        summary["scores"] = scores
-        
-        # กำหนดเกรด
+        Args:
+            total_score: คะแนนรวม
+            
+        Returns:
+            str: เกรด
+        """
         if total_score >= 90:
-            grade = "A"
+            return "A"
         elif total_score >= 80:
-            grade = "B"
+            return "B"
         elif total_score >= 70:
-            grade = "C"
+            return "C"
         elif total_score >= 60:
-            grade = "D"
-        else:
-            grade = "F"
+            return "D"
+        return "F"
+    
+    def _display_summary_report(self, scores, grade):
+        """
+        แสดงผลสรุปให้ผู้ใช้
         
-        summary["grade"] = grade
-        
-        # แสดงผลสรุป (ใช้ภาษาไทยคู่กับภาษาอังกฤษเพื่อให้เข้าใจง่าย)
+        Args:
+            scores: คะแนนแต่ละด้าน
+            grade: เกรด
+        """
         print("\nคะแนนสรุป (Summary Scores):")
         print(f"1. ความแม่นยำในการค้นคืน (Retrieval Accuracy): {scores['retrieval_accuracy']:.2f}/100 คะแนน")
         print(f"2. ความเข้าใจบริบท (Contextual Understanding): {scores['contextual_understanding']:.2f}/100 คะแนน")
@@ -1091,120 +1602,157 @@ class RAGTester:
         print(f"5. ประสิทธิภาพด้านความเร็ว (Performance Speed): {scores['performance']:.2f}/100 คะแนน")
         print(f"\nคะแนนรวม (Total Score): {scores['total']:.2f}/100 คะแนน")
         print(f"เกรด (Grade): {grade}")
+    
+    def _save_summary_report(self, summary):
+        """
+        บันทึกรายงานเป็นไฟล์
         
-        # บันทึกรายงานเป็นไฟล์
+        Args:
+            summary: รายงานสรุปผล
+        """
         report_file = self.results_dir / "summary_report.json"
         with open(report_file, "w", encoding="utf-8") as f:
             json.dump(summary, f, ensure_ascii=False, indent=2)
         
         print(f"\nบันทึกรายงานสรุปไปยัง: {report_file}")
-        
-        # สร้างรายงานกราฟ
-        self.generate_graphs(scores)
-        
-        return summary
     
     def generate_graphs(self, scores):
         """
         สร้างกราฟสรุปผลการทดสอบ
         
         Args:
-            scores: คะแนนสรุป
+            scores: คะแนนแต่ละด้าน
         """
         try:
-            # สร้างข้อความแสงโมเดล
-            model_info_text = f"LLM: {self.model_info['llm_model']} | Embedding: {self.model_info['embedding_model']}"
-            
-            # สร้างโฟลเดอร์สำหรับกราฟ
-            graphs_dir = self.results_dir / "graphs"
-            graphs_dir.mkdir(exist_ok=True)
-            
-            # 1. กราฟคะแนนรายด้าน (ใช้ภาษาอังกฤษเพื่อความเข้ากันได้กับไลบรารีกราฟิก)
-            categories = [
-                "Retrieval Accuracy",
-                "Contextual Understanding",
-                "Thai Language Performance",
-                "Answer Evaluation Variability",
-                "Performance Speed"
-            ]
-            
-            values = [
-                scores["retrieval_accuracy"],
-                scores["contextual_understanding"],
-                scores["thai_language"],
-                scores["answer_variability"],
-                scores["performance"]
-            ]
-            
-            # สร้างกราฟแท่ง
-            plt.figure(figsize=(12, 8))
-            bars = plt.bar(categories, values, color='skyblue')
-            
-            # เพิ่มค่าบนกราฟแท่ง
-            for bar in bars:
-                height = bar.get_height()
-                plt.text(bar.get_x() + bar.get_width()/2., height + 1,
-                        f'{height:.2f}', ha='center', va='bottom')
-            
-            plt.ylim(0, 110)
-            plt.xlabel('Test Categories')
-            plt.ylabel('Score (out of 100)')
-            plt.title(f'RAG Performance by Category\n{model_info_text}')
-            plt.xticks(rotation=15)
-            plt.tight_layout()
-            
-            # บันทึกกราฟ
-            plt.savefig(graphs_dir / "category_scores.png")
-            
-            # 2. กราฟเรดาร์ (ใช้ภาษาอังกฤษเพื่อความเข้ากันได้กับไลบรารีกราฟิก)
-            categories = ["Retrieval Accuracy", "Contextual Understanding", 
-                         "Thai Language Performance", "Answer Evaluation Variability", 
-                         "Performance Speed"]
-            
-            values = [
-                scores["retrieval_accuracy"]/100,
-                scores["contextual_understanding"]/100,
-                scores["thai_language"]/100,
-                scores["answer_variability"]/100,
-                scores["performance"]/100
-            ]
-            
-            # ทำให้เป็นวงกลม (เพิ่มค่าแรกต่อท้าย)
-            categories = categories + [categories[0]]
-            values = values + [values[0]]
-            
-            # แปลงเป็นองศา
-            N = len(categories) - 1
-            angles = [n / float(N) * 2 * np.pi for n in range(N)]
-            angles += angles[:1]
-            
-            # สร้างกราฟเรดาร์
-            plt.figure(figsize=(10, 10))
-            ax = plt.subplot(111, polar=True)
-            
-            # เส้นขอบ
-            plt.plot(angles, values, linewidth=2, linestyle='solid', label="คะแนน")
-            
-            # พื้นที่
-            plt.fill(angles, values, alpha=0.25)
-            
-            # เพิ่มป้ายกำกับ
-            plt.xticks(angles[:-1], categories[:-1], size=12)
-            
-            # ปรับแต่งเพิ่มเติม
-            ax.set_rlabel_position(0)
-            plt.yticks([0.2, 0.4, 0.6, 0.8, 1.0], ["20%", "40%", "60%", "80%", "100%"], color="grey", size=10)
-            plt.ylim(0, 1)
-            
-            plt.title(f"RAG Test Results\n{model_info_text}", size=16)
-            
-            # บันทึกกราฟ
-            plt.savefig(graphs_dir / "radar_chart.png")
+            # สร้างและบันทึกกราฟ
+            graphs_dir = self._prepare_graphs_directory()
+            self._create_bar_chart(scores, graphs_dir)
+            self._create_radar_chart(scores, graphs_dir)
             
             print(f"สร้างกราฟสรุปผลสำเร็จที่: {graphs_dir}")
-        
         except Exception as e:
             print(f"ไม่สามารถสร้างกราฟได้: {str(e)}")
+    
+    def _prepare_graphs_directory(self):
+        """
+        เตรียมไดเรกทอรีสำหรับเก็บกราฟ
+        
+        Returns:
+            Path: ไดเรกทอรีสำหรับเก็บกราฟ
+        """
+        graphs_dir = self.results_dir / "graphs"
+        graphs_dir.mkdir(exist_ok=True)
+        return graphs_dir
+    
+    def _create_bar_chart(self, scores, graphs_dir):
+        """
+        สร้างกราฟแท่งแสดงคะแนนแต่ละด้าน
+        
+        Args:
+            scores: คะแนนแต่ละด้าน
+            graphs_dir: ไดเรกทอรีสำหรับเก็บกราฟ
+        """
+        # สร้างข้อความแสดงโมเดล
+        model_info_text = f"LLM: {self.model_info['llm_model']} | Embedding: {self.model_info['embedding_model']}"
+        
+        # เตรียมข้อมูลสำหรับกราฟ
+        categories = [
+            "Retrieval Accuracy",
+            "Contextual Understanding",
+            "Thai Language Performance",
+            "Answer Evaluation Variability",
+            "Performance Speed"
+        ]
+        
+        values = [
+            scores["retrieval_accuracy"],
+            scores["contextual_understanding"],
+            scores["thai_language"],
+            scores["answer_variability"],
+            scores["performance"]
+        ]
+        
+        # สร้างกราฟแท่ง
+        plt.figure(figsize=(12, 8))
+        bars = plt.bar(categories, values, color='skyblue')
+        
+        # เพิ่มค่าบนกราฟแท่ง
+        for bar in bars:
+            height = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width()/2., height + 1,
+                    f'{height:.2f}', ha='center', va='bottom')
+        
+        plt.ylim(0, 110)
+        plt.xlabel('Test Categories')
+        plt.ylabel('Score (out of 100)')
+        plt.title(f'RAG Performance by Category\n{model_info_text}')
+        plt.xticks(rotation=15)
+        plt.tight_layout()
+        
+        # บันทึกกราฟ
+        plt.savefig(graphs_dir / "category_scores.png")
+        plt.close()
+    
+    def _create_radar_chart(self, scores, graphs_dir):
+        """
+        สร้างกราฟเรดาร์แสดงคะแนนแต่ละด้าน
+        
+        Args:
+            scores: คะแนนแต่ละด้าน
+            graphs_dir: ไดเรกทอรีสำหรับเก็บกราฟ
+        """
+        # สร้างข้อความแสดงโมเดล
+        model_info_text = f"LLM: {self.model_info['llm_model']} | Embedding: {self.model_info['embedding_model']}"
+        
+        # เตรียมข้อมูลสำหรับกราฟ
+        categories = [
+            "Retrieval Accuracy",
+            "Contextual Understanding",
+            "Thai Language Performance",
+            "Answer Evaluation Variability",
+            "Performance Speed"
+        ]
+        
+        values = [
+            scores["retrieval_accuracy"]/100,
+            scores["contextual_understanding"]/100,
+            scores["thai_language"]/100,
+            scores["answer_variability"]/100,
+            scores["performance"]/100
+        ]
+        
+        # ทำให้เป็นวงกลม (เพิ่มค่าแรกต่อท้าย)
+        categories = categories + [categories[0]]
+        values = values + [values[0]]
+        
+        # แปลงเป็นองศา
+        N = len(categories) - 1
+        angles = [n / float(N) * 2 * np.pi for n in range(N)]
+        angles += angles[:1]
+        
+        # สร้างกราฟเรดาร์
+        plt.figure(figsize=(10, 10))
+        ax = plt.subplot(111, polar=True)
+        
+        # เส้นขอบ
+        plt.plot(angles, values, linewidth=2, linestyle='solid', label="คะแนน")
+        
+        # พื้นที่
+        plt.fill(angles, values, alpha=0.25)
+        
+        # เพิ่มป้ายกำกับ
+        plt.xticks(angles[:-1], categories[:-1], size=12)
+        
+        # ปรับแต่งเพิ่มเติม
+        ax.set_rlabel_position(0)
+        plt.yticks([0.2, 0.4, 0.6, 0.8, 1.0], ["20%", "40%", "60%", "80%", "100%"], color="grey", size=10)
+        plt.ylim(0, 1)
+        
+        plt.title(f"RAG Test Results\n{model_info_text}", size=16)
+        
+        # บันทึกกราฟ
+        plt.savefig(graphs_dir / "radar_chart.png")
+        plt.close()
     
     def run_all_tests(self):
         """
@@ -1217,6 +1765,16 @@ class RAGTester:
         print(" " * 15 + "เริ่มการทดสอบ RAG ทุกด้าน")
         print("=" * 60)
         
+        # ทดสอบแต่ละด้าน
+        self._run_all_test_categories()
+        
+        # สร้างรายงานสรุป
+        return self.generate_summary_report()
+    
+    def _run_all_test_categories(self):
+        """
+        ทดสอบทุกด้านตามลำดับ
+        """
         # 1. ทดสอบความแม่นยำในการค้นคืน
         self.test_retrieval_accuracy()
         
@@ -1231,9 +1789,7 @@ class RAGTester:
         
         # 5. ทดสอบความเร็ว
         self.test_performance()
-        
-        # สร้างรายงานสรุป
-        return self.generate_summary_report()
+
 
 def main():
     """ฟังก์ชันหลักสำหรับรันการทดสอบ"""
@@ -1244,63 +1800,17 @@ def main():
     print("=" * 60)
     
     try:
-        # ตรวจสอบการเชื่อมต่อ API หรือใช้โดยตรง
-        use_api = input("ใช้งานผ่าน API หรือไม่? (y/n): ").strip().lower() == 'y'
-        
-        if use_api:
-            api_url = input("ระบุ API URL (default: http://localhost:8000): ").strip()
-            if not api_url:
-                api_url = "http://localhost:8000"
-            
-            # ทดสอบการเชื่อมต่อ
-            try:
-                response = requests.get(f"{api_url}/")
-                if response.status_code == 200:
-                    print(f"✅ เชื่อมต่อ API สำเร็จ: {api_url}")
-                else:
-                    print(f"⚠️ API ตอบสนองด้วยสถานะ: {response.status_code}")
-                    continue_anyway = input("ต้องการดำเนินการต่อหรือไม่? (y/n): ").strip().lower() == 'y'
-                    if not continue_anyway:
-                        return
-            except Exception as e:
-                print(f"❌ ไม่สามารถเชื่อมต่อกับ API ได้: {str(e)}")
-                use_api_anyway = input("ต้องการใช้งานผ่าน API ต่อหรือไม่? (y/n): ").strip().lower() == 'y'
-                if not use_api_anyway:
-                    use_api = False
+        # รับข้อมูลการทดสอบจากผู้ใช้
+        test_config = _get_test_configuration()
         
         # สร้างตัวทดสอบ
-        tester = RAGTester(api_base_url=api_url if use_api else None, use_api=use_api)
+        tester = RAGTester(
+            api_base_url=test_config["api_url"] if test_config["use_api"] else None,
+            use_api=test_config["use_api"]
+        )
         
-        # เลือกโหมดการทดสอบ
-        print("\nเลือกโหมดการทดสอบ:")
-        print("1. ทดสอบทั้งหมด")
-        print("2. ทดสอบความแม่นยำในการค้นคืน")
-        print("3. ทดสอบความเข้าใจบริบท")
-        print("4. ทดสอบประสิทธิภาพกับภาษาไทย")
-        print("5. ทดสอบการประเมินคำตอบที่แตกต่าง")
-        print("6. ทดสอบความเร็ว")
-        
-        mode = input("\nเลือกโหมด (1-6): ").strip()
-        
-        if mode == "1":
-            tester.run_all_tests()
-        elif mode == "2":
-            tester.test_retrieval_accuracy()
-        elif mode == "3":
-            tester.test_contextual_understanding()
-        elif mode == "4":
-            tester.test_thai_language()
-        elif mode == "5":
-            tester.test_answer_variability()
-        elif mode == "6":
-            tester.test_performance()
-        else:
-            print("โหมดไม่ถูกต้อง")
-            return
-        
-        # ถ้าไม่ได้ทดสอบทั้งหมด ให้สร้างรายงานสรุป
-        if mode != "1":
-            tester.generate_summary_report()
+        # ทดสอบตามโหมดที่เลือก
+        _run_test_by_mode(tester, test_config["mode"])
         
     except KeyboardInterrupt:
         print("\nยกเลิกการทดสอบ")
@@ -1310,6 +1820,111 @@ def main():
     print("\n" + "=" * 60)
     print(" " * 20 + "การทดสอบเสร็จสิ้น")
     print("=" * 60)
+
+
+def _get_test_configuration():
+    """
+    รับข้อมูลการทดสอบจากผู้ใช้
+    
+    Returns:
+        dict: ข้อมูลการทดสอบ
+    """
+    # ตรวจสอบการเชื่อมต่อ API หรือใช้โดยตรง
+    use_api = input("ใช้งานผ่าน API หรือไม่? (y/n): ").strip().lower() == 'y'
+    api_url = None
+    
+    if use_api:
+        # รับและตรวจสอบ URL ของ API
+        api_url = _get_and_validate_api_url()
+    
+    # รับโหมดการทดสอบ
+    mode = _select_test_mode()
+    
+    return {
+        "use_api": use_api,
+        "api_url": api_url,
+        "mode": mode
+    }
+
+
+def _get_and_validate_api_url():
+    """
+    รับและตรวจสอบ URL ของ API
+    
+    Returns:
+        str: URL ของ API
+    """
+    api_url = input("ระบุ API URL (default: http://localhost:8000): ").strip()
+    if not api_url:
+        api_url = "http://localhost:8000"
+    
+    # ทดสอบการเชื่อมต่อ
+    try:
+        response = requests.get(f"{api_url}/")
+        if response.status_code == 200:
+            print(f"✅ เชื่อมต่อ API สำเร็จ: {api_url}")
+        else:
+            print(f"⚠️ API ตอบสนองด้วยสถานะ: {response.status_code}")
+            continue_anyway = input("ต้องการดำเนินการต่อหรือไม่? (y/n): ").strip().lower() == 'y'
+            if not continue_anyway:
+                raise KeyboardInterrupt()
+    except Exception as e:
+        print(f"❌ ไม่สามารถเชื่อมต่อกับ API ได้: {str(e)}")
+        use_api_anyway = input("ต้องการใช้งานผ่าน API ต่อหรือไม่? (y/n): ").strip().lower() == 'y'
+        if not use_api_anyway:
+            raise ValueError("ยกเลิกการใช้งานผ่าน API")
+    
+    return api_url
+
+
+def _select_test_mode():
+    """
+    เลือกโหมดการทดสอบ
+    
+    Returns:
+        str: โหมดการทดสอบ
+    """
+    print("\nเลือกโหมดการทดสอบ:")
+    print("1. ทดสอบทั้งหมด")
+    print("2. ทดสอบความแม่นยำในการค้นคืน")
+    print("3. ทดสอบความเข้าใจบริบท")
+    print("4. ทดสอบประสิทธิภาพกับภาษาไทย")
+    print("5. ทดสอบการประเมินคำตอบที่แตกต่าง")
+    print("6. ทดสอบความเร็ว")
+    
+    mode = input("\nเลือกโหมด (1-6): ").strip()
+    if mode not in ["1", "2", "3", "4", "5", "6"]:
+        raise ValueError("โหมดไม่ถูกต้อง")
+    
+    return mode
+
+
+def _run_test_by_mode(tester, mode):
+    """
+    ทดสอบตามโหมดที่เลือก
+    
+    Args:
+        tester: ตัวทดสอบ
+        mode: โหมดการทดสอบ
+    """
+    if mode == "1":
+        tester.run_all_tests()
+    elif mode == "2":
+        tester.test_retrieval_accuracy()
+        tester.generate_summary_report()
+    elif mode == "3":
+        tester.test_contextual_understanding()
+        tester.generate_summary_report()
+    elif mode == "4":
+        tester.test_thai_language()
+        tester.generate_summary_report()
+    elif mode == "5":
+        tester.test_answer_variability()
+        tester.generate_summary_report()
+    elif mode == "6":
+        tester.test_performance()
+        tester.generate_summary_report()
+
 
 if __name__ == "__main__":
     main()
