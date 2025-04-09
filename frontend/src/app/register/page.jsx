@@ -1,10 +1,15 @@
+// frontend/src/app/register/page.jsx
 "use client";
 
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import supabase from '@/lib/supabase'; // นำเข้า supabase client
 
 export default function RegisterPage() {
+  const router = useRouter();
+  
   // สร้าง state สำหรับเก็บข้อมูลฟอร์ม
   const [formData, setFormData] = useState({
     fullName: '',
@@ -76,7 +81,11 @@ export default function RegisterPage() {
       formIsValid = false;
     }
     
-    // ไม่ต้องตรวจสอบภาควิชาแล้ว เพราะลบฟิลด์นี้ออกไป
+    // ตรวจสอบตำแหน่งทางวิชาการ
+    if (!formData.academicPosition) {
+      tempErrors.academicPosition = "กรุณาเลือกตำแหน่งทางวิชาการ";
+      formIsValid = false;
+    }
 
     setErrors(tempErrors);
     return formIsValid;
@@ -93,23 +102,46 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     
     try {
-      // ในอนาคตจะส่งข้อมูลไปยัง API
-      // const response = await fetch('/api/register', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(formData),
-      // });
+      // เรียกใช้ API ของ Supabase สำหรับการลงทะเบียน
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            academic_position: formData.academicPosition,
+            user_role: 'teacher', // กำหนดบทบาทเริ่มต้นเป็นอาจารย์
+          }
+        }
+      });
       
-      // จำลองการส่งข้อมูลสำเร็จ
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (error) {
+        throw error;
+      }
       
-      // if (!response.ok) {
-      //   throw new Error('ไม่สามารถลงทะเบียนได้');
-      // }
+      // เพิ่มข้อมูลเพิ่มเติมลงในตาราง profiles (ถ้ามี)
+      if (data?.user?.id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            { 
+              id: data.user.id,
+              full_name: formData.fullName,
+              academic_position: formData.academicPosition,
+              email: formData.email,
+              created_at: new Date()
+            }
+          ]);
+          
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+          // ไม่ throw error เพราะการสร้าง user สำเร็จแล้ว
+        }
+      }
       
+      // แสดงข้อความสำเร็จ
       setSubmitSuccess(true);
+      
       // รีเซ็ตฟอร์ม
       setFormData({
         fullName: '',
@@ -121,7 +153,15 @@ export default function RegisterPage() {
       
     } catch (error) {
       console.error('Registration error:', error);
-      setErrors({ submit: 'เกิดข้อผิดพลาดในการลงทะเบียน กรุณาลองใหม่อีกครั้ง' });
+      
+      // จัดการข้อผิดพลาดที่เฉพาะเจาะจง
+      if (error.message.includes("User already registered")) {
+        setErrors({ submit: 'อีเมลนี้มีผู้ใช้ลงทะเบียนแล้ว กรุณาใช้อีเมลอื่น' });
+      } else if (error.message.includes("Password should be at least 6 characters")) {
+        setErrors({ password: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' });
+      } else {
+        setErrors({ submit: 'เกิดข้อผิดพลาดในการลงทะเบียน กรุณาลองใหม่อีกครั้ง' });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -151,7 +191,7 @@ export default function RegisterPage() {
   }
 
   return (
-      <div className="flex min-h-screen flex-col md:flex-row bg-[#D8EAFE]">
+    <div className="flex min-h-screen flex-col md:flex-row bg-[#D8EAFE]">
       {/* ส่วนซ้าย - รูปภาพและข้อความ */}
       <div className="w-full md:w-2/5 bg-blue-600 p-8 flex flex-col justify-center items-center text-white">
         <div className="max-w-md">
@@ -170,8 +210,8 @@ export default function RegisterPage() {
       <div className="w-full md:w-3/5 p-8 flex items-center justify-center bg-[#D8EAFE]">
         <div className="max-w-md w-full">
           <div className="text-center mb-8 bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-gray-800">ลงทะเบียนบัญชีอาจารย์</h2>
-                          <p className="text-gray-800">กรอกข้อมูลเพื่อสร้างบัญชีสำหรับระบบตรวจข้อสอบอัตนัย</p>
+            <h2 className="text-2xl font-bold text-gray-800">ลงทะเบียนบัญชีอาจารย์</h2>
+            <p className="text-gray-600">กรอกข้อมูลเพื่อสร้างบัญชีสำหรับระบบตรวจข้อสอบอัตนัย</p>
           </div>
           
           <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
@@ -218,8 +258,6 @@ export default function RegisterPage() {
               {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
             </div>
             
-            {/* ภาควิชา - ได้ลบออกไปแล้ว */}
-            
             {/* ตำแหน่งทางวิชาการ */}
             <div className="mb-4">
               <label htmlFor="academicPosition" className="block text-sm font-medium text-[#333333] mb-1">
@@ -228,7 +266,9 @@ export default function RegisterPage() {
               <select
                 id="academicPosition"
                 name="academicPosition"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 text-black font-medium"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-black font-medium ${
+                  errors.academicPosition ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
+                }`}
                 value={formData.academicPosition}
                 onChange={handleChange}
               >
@@ -238,6 +278,7 @@ export default function RegisterPage() {
                 <option value="รองศาสตราจารย์" className="text-black">รองศาสตราจารย์</option>
                 <option value="ศาสตราจารย์" className="text-black">ศาสตราจารย์</option>
               </select>
+              {errors.academicPosition && <p className="mt-1 text-sm text-red-600">{errors.academicPosition}</p>}
             </div>
             
             {/* รหัสผ่าน */}
@@ -274,6 +315,24 @@ export default function RegisterPage() {
                 onChange={handleChange}
               />
               {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
+            </div>
+            
+            {/* เงื่อนไขการใช้งาน */}
+            <div className="mb-6">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="acceptTerms"
+                  name="acceptTerms"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  checked={formData.acceptTerms}
+                  onChange={(e) => setFormData({...formData, acceptTerms: e.target.checked})}
+                />
+                <label htmlFor="acceptTerms" className="ml-2 block text-sm text-gray-700">
+                  ยอมรับ <a href="#" className="text-blue-600 hover:underline">เงื่อนไขการใช้งาน</a> และ <a href="#" className="text-blue-600 hover:underline">นโยบายความเป็นส่วนตัว</a>
+                </label>
+              </div>
+              {errors.acceptTerms && <p className="mt-1 text-sm text-red-600">{errors.acceptTerms}</p>}
             </div>
             
             {/* ปุ่มลงทะเบียน */}
