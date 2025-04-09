@@ -17,13 +17,38 @@ class EvaluationState(TypedDict):
 
 class LLMEvaluationService:
     def __init__(self, rag_service):
+        """
+        สร้าง service สำหรับการประเมินคำตอบด้วย LLM
+        
+        Args:
+            rag_service: บริการ RAG สำหรับการค้นหาข้อมูลที่เกี่ยวข้อง
+        """
         self.rag_service = rag_service
+        
+        # เตรียม LLM และ prompt
+        self._setup_llm_and_prompt()
+    
+    def _setup_llm_and_prompt(self):
+        """เตรียม LLM และ prompt สำหรับการประเมิน"""
         # ดึง LLM จาก ModelService
         model_service = ModelService()
         self.llm = model_service.get_llm()
         
-        # สร้าง prompt เอง แทนการใช้จาก hub เนื่องจากเราต้องการปรับให้เหมาะกับภาษาไทย
-        self.prompt_template = """
+        # สร้าง prompt สำหรับประเมินคำตอบภาษาไทย
+        self.prompt_template = self._create_evaluation_prompt_template()
+        self.prompt = PromptTemplate(
+            template=self.prompt_template,
+            input_variables=["question", "student_answer", "answer_key"]
+        )
+    
+    def _create_evaluation_prompt_template(self):
+        """
+        สร้าง template สำหรับ prompt ที่ใช้ในการประเมิน
+        
+        Returns:
+            template string สำหรับ prompt
+        """
+        return """
         คุณเป็นผู้ช่วยอาจารย์ในการตรวจข้อสอบอัตนัย โปรดประเมินคำตอบของนักศึกษาโดยเปรียบเทียบกับเฉลยที่ให้มา
         (You are a teacher's assistant checking essay exams. Please evaluate the student's answer by comparing it to the provided answer key.)
         
@@ -46,71 +71,153 @@ class LLMEvaluationService:
         ถ้าคำตอบมีการใช้ทั้งภาษาไทยและภาษาอังกฤษ ให้ประเมินความถูกต้องของทั้งสองภาษา
         """
         
-        self.prompt = PromptTemplate(
-            template=self.prompt_template,
-            input_variables=["question", "student_answer", "answer_key"]
-        )
-        
     def create_evaluation_graph(self):
-        """สร้าง graph สำหรับการประเมินคำตอบ"""
+        """
+        สร้าง graph สำหรับการประเมินคำตอบ
         
-        def retrieve(state: EvaluationState):
-            """ค้นหาข้อมูลที่เกี่ยวข้องจากเฉลย"""
-            query = f"คำถาม: {state['question']}\nคำตอบนักศึกษา: {state['student_answer']}"
-            retrieved_docs = self.rag_service.retrieve_relevant_context(
-                query=query,
-                subject_id=state['subject_id'],
-                question_id=state['question_id']
-            )
-            return {"context": retrieved_docs}
-        
-        def evaluate(state: EvaluationState):
-            """ประเมินคำตอบนักเรียนเทียบกับเฉลย"""
-            docs_content = "\n\n".join(doc.page_content for doc in state["context"])
-            
-            # ใช้ prompt ที่สร้างเอง
-            prompt_value = self.prompt.format(
-                question=state["question"],
-                student_answer=state["student_answer"],
-                answer_key=docs_content
-            )
-            
-            # ส่งคำถามไปยัง Groq LLM
-            response = self.llm.invoke(prompt_value)
-            
-            # แยกคะแนนและการประเมิน
-            result = response.content
-            
-            # พยายามแยกคะแนนออกมา - สมมติว่าเริ่มต้นด้วย "คะแนน: X/10"
-            try:
-                score_line = result.split("\n")[0]
-                if "คะแนน:" in score_line:
-                    score_text = score_line.replace("คะแนน:", "").strip().split("/")[0]
-                    score = float(score_text)
-                else:
-                    # ถ้าไม่พบรูปแบบที่คาดหวัง ให้กำหนดค่าเริ่มต้น
-                    score = 5.0
-            except:
-                # ถ้ามีข้อผิดพลาด ให้กำหนดค่าเริ่มต้น
-                score = 5.0
-            
-            return {
-                "evaluation": result,
-                "score": score
-            }
-        
+        Returns:
+            StateGraph สำหรับการประเมินคำตอบ
+        """
         # สร้าง graph การประมวลผล
-        graph_builder = StateGraph(EvaluationState).add_sequence([retrieve, evaluate])
+        graph_builder = StateGraph(EvaluationState).add_sequence([self._retrieve, self._evaluate])
         graph_builder.add_edge(START, "retrieve")
         return graph_builder.compile()
     
+    def _retrieve(self, state: EvaluationState):
+        """
+        ค้นหาข้อมูลที่เกี่ยวข้องจากเฉลย
+        
+        Args:
+            state: สถานะปัจจุบันของการประเมิน
+            
+        Returns:
+            ข้อมูลบริบทที่พบ
+        """
+        query = self._create_query_from_state(state)
+        retrieved_docs = self.rag_service.retrieve_relevant_context(
+            query=query,
+            subject_id=state['subject_id'],
+            question_id=state['question_id']
+        )
+        return {"context": retrieved_docs}
+    
+    def _create_query_from_state(self, state):
+        """
+        สร้างคำค้นหาจากสถานะ
+        
+        Args:
+            state: สถานะปัจจุบันของการประเมิน
+            
+        Returns:
+            คำค้นหาสำหรับการค้นคืนข้อมูล
+        """
+        return f"คำถาม: {state['question']}\nคำตอบนักศึกษา: {state['student_answer']}"
+    
+    def _evaluate(self, state: EvaluationState):
+        """
+        ประเมินคำตอบนักเรียนเทียบกับเฉลย
+        
+        Args:
+            state: สถานะปัจจุบันของการประเมิน
+            
+        Returns:
+            ผลการประเมิน
+        """
+        # รวมเนื้อหาจากเอกสารบริบท
+        docs_content = self._prepare_context_content(state["context"])
+        
+        # สร้าง prompt สำหรับการประเมิน
+        prompt_value = self._create_evaluation_prompt(
+            state["question"],
+            state["student_answer"],
+            docs_content
+        )
+        
+        # ส่งคำถามไปยัง LLM
+        response = self.llm.invoke(prompt_value)
+        result = response.content
+        
+        # แยกคะแนนและการประเมิน
+        score = self._extract_score_from_result(result)
+        
+        return {
+            "evaluation": result,
+            "score": score
+        }
+    
+    def _prepare_context_content(self, context_docs):
+        """
+        รวมเนื้อหาจากเอกสารบริบท
+        
+        Args:
+            context_docs: รายการเอกสารบริบท
+            
+        Returns:
+            เนื้อหาที่รวมเป็นข้อความเดียว
+        """
+        return "\n\n".join(doc.page_content for doc in context_docs)
+    
+    def _create_evaluation_prompt(self, question, student_answer, answer_key_content):
+        """
+        สร้าง prompt สำหรับการประเมิน
+        
+        Args:
+            question: คำถาม
+            student_answer: คำตอบของนักเรียน
+            answer_key_content: เนื้อหาเฉลย
+            
+        Returns:
+            prompt ที่จัดรูปแบบแล้ว
+        """
+        return self.prompt.format(
+            question=question,
+            student_answer=student_answer,
+            answer_key=answer_key_content
+        )
+    
+    def _extract_score_from_result(self, result_text, default_score=5.0):
+        """
+        แยกคะแนนจากผลลัพธ์การประเมิน
+        
+        Args:
+            result_text: ข้อความผลลัพธ์
+            default_score: คะแนนเริ่มต้นกรณีไม่พบคะแนน
+            
+        Returns:
+            คะแนนที่แยกได้
+        """
+        try:
+            # ตรวจสอบบรรทัดแรกของผลลัพธ์
+            first_line = result_text.split("\n")[0]
+            
+            if "คะแนน:" in first_line:
+                # แยกคะแนนจากข้อความ "คะแนน: X/10"
+                score_text = first_line.replace("คะแนน:", "").strip().split("/")[0]
+                return float(score_text)
+        except Exception as e:
+            print(f"Error extracting score: {str(e)}")
+        
+        # กรณีไม่สามารถแยกคะแนนได้ ใช้ค่าเริ่มต้น
+        return default_score
+    
     def evaluate_answer(self, question, student_answer, subject_id, question_id):
-        """ประเมินคำตอบของนักเรียน"""
+        """
+        ประเมินคำตอบของนักเรียน
+        
+        Args:
+            question: คำถาม
+            student_answer: คำตอบของนักเรียน
+            subject_id: รหัสวิชา
+            question_id: รหัสคำถาม
+            
+        Returns:
+            ผลการประเมิน
+        """
         graph = self.create_evaluation_graph()
-        result = graph.invoke({
+        initial_state = {
             "question": question,
             "student_answer": student_answer,
             "subject_id": subject_id,
             "question_id": question_id
-        })
-        return result
+        }
+        return graph.invoke(initial_state)
