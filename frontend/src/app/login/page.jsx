@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
+  const router = useRouter(); // เพิ่ม router เพื่อใช้ในการนำทาง
+  
   // สร้าง state สำหรับเก็บข้อมูลฟอร์ม
   const [formData, setFormData] = useState({
     email: '',
@@ -86,9 +88,17 @@ export default function LoginPage() {
       //   throw new Error('ไม่สามารถเข้าสู่ระบบได้');
       // }
       
-      // ตัวอย่างการเปลี่ยนเส้นทางเมื่อเข้าสู่ระบบสำเร็จ
-      // window.location.href = '/dashboard';
       console.log('Login successful', formData);
+      
+      // เก็บข้อมูลใน localStorage เพื่อจำลองการเข้าสู่ระบบ
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('user', JSON.stringify({
+        name: 'อาจารย์ มหาวิทยาลัย',
+        email: formData.email
+      }));
+      
+      // นำทางไปยังหน้า Dashboard
+      router.push('/dashboard');
       
     } catch (error) {
       console.error('Login error:', error);
@@ -179,18 +189,26 @@ export default function LoginPage() {
               <label htmlFor="rememberMe" className="ml-2 block text-sm text-[#333333]">
                 จดจำฉัน
               </label>
-              <a href="#" className="ml-auto text-sm text-blue-700 hover:text-blue-900">
+              <Link href="/forgot-password" className="ml-auto text-sm text-blue-700 hover:text-blue-900">
                 ลืมรหัสผ่าน?
-              </a>
+              </Link>
             </div>
             
             {/* ปุ่มเข้าสู่ระบบ */}
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 mb-4 disabled:bg-blue-300"
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 mb-4 disabled:bg-blue-300 flex justify-center items-center"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'กำลังดำเนินการ...' : 'เข้าสู่ระบบ'}
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  กำลังดำเนินการ...
+                </>
+              ) : 'เข้าสู่ระบบ'}
             </button>
             
             {/* ลิงก์ไปหน้าลงทะเบียน */}
