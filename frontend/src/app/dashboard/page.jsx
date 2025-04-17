@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Header from '@/components/Header';
+import supabase from '@/lib/supabase';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -10,13 +12,8 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ข้อมูลจำลองสำหรับการแสดงผล
-  const [classes, setClasses] = useState([
-    { id: 1, name: 'วิศวกรรมซอฟต์แวร์', code: 'SW101', term: '1/2566', students: 45 },
-    { id: 2, name: 'การวิเคราะห์และออกแบบเชิงวัตถุ', code: 'SW201', term: '1/2566', students: 38 },
-    { id: 3, name: 'การพัฒนาเว็บแอปพลิเคชัน', code: 'SW301', term: '1/2566', students: 42 },
-  ]);
-
+  // สร้าง state สำหรับเก็บข้อมูลรายวิชา
+  const [classes, setClasses] = useState([]);
   const [recentActivities, setRecentActivities] = useState([
     { id: 1, action: 'ตรวจข้อสอบ', subject: 'วิศวกรรมซอฟต์แวร์', date: '15 มี.ค. 2025', status: 'เสร็จสิ้น' },
     { id: 2, action: 'อัปโหลดเฉลย', subject: 'การวิเคราะห์และออกแบบเชิงวัตถุ', date: '14 มี.ค. 2025', status: 'เสร็จสิ้น' },
@@ -26,35 +23,78 @@ export default function Dashboard() {
   // ตรวจสอบสถานะการเข้าสู่ระบบเมื่อโหลดหน้า
   useEffect(() => {
     // ตรวจสอบว่ามีการเข้าสู่ระบบหรือไม่
-    const checkLoginStatus = () => {
-      const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
-      setIsLoggedIn(loggedIn);
-      
-      if (loggedIn) {
-        try {
-          const userData = JSON.parse(localStorage.getItem('user'));
-          setUser(userData);
-        } catch (error) {
-          console.error('Error parsing user data', error);
-          // หากข้อมูลผู้ใช้มีปัญหา ให้ออกจากระบบ
+    const checkLoginStatus = async () => {
+      try {
+        // ตรวจสอบจาก Supabase session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error fetching session:', error);
+          // หากมีข้อผิดพลาดในการดึงข้อมูล session
           handleLogout();
+          return;
         }
-      } else {
-        // ถ้าไม่ได้เข้าสู่ระบบ ให้กลับไปที่หน้า login
-        router.push('/login');
+        
+        if (session?.user) {
+          setIsLoggedIn(true);
+          setUser(session.user);
+          // ดึงข้อมูลรายวิชาจาก Supabase
+          fetchClasses(session.user.id);
+        } else {
+          // ถ้าไม่ได้เข้าสู่ระบบ ให้กลับไปที่หน้า login
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
     
     checkLoginStatus();
   }, [router]);
 
+  // ฟังก์ชันสำหรับดึงข้อมูลรายวิชาจาก Supabase
+  const fetchClasses = async (userId) => {
+    try {
+      console.log('Fetching classes for user ID:', userId);
+      
+      // ดึงข้อมูลจากตาราง classes โดยกรองตาม teacher_id
+      // หมายเหตุ: ถ้า RLS ปิดอยู่ ใช้การดึงทั้งหมดโดยไม่ต้องกรอง
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*');
+        // ถ้าต้องการกรองตาม teacher_id ให้เพิ่มบรรทัดนี้:
+        // .eq('teacher_id', userId);
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('ข้อมูลรายวิชาที่ดึงมา:', data);
+      setClasses(data || []);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      setClasses([]);
+    }
+  };
+
   // ฟังก์ชันสำหรับออกจากระบบ
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('user');
-    router.push('/login');
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+      
+      // เคลียร์ข้อมูลผู้ใช้และนำทางกลับไปหน้าล็อกอิน
+      setIsLoggedIn(false);
+      setUser(null);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   // แสดงหน้า loading ระหว่างตรวจสอบสถานะการเข้าสู่ระบบ
@@ -80,27 +120,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#F3F4F6]">
       {/* พื้นที่ส่วนหัว */}
-      <header className="bg-blue-600 text-white p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">ระบบผู้ช่วยตรวจข้อสอบอัตนัย</h1>
-          <div className="flex items-center space-x-4">
-            <span>{user.name}</span>
-            <div className="flex items-center">
-              <div className="bg-blue-700 p-2 rounded-full h-10 w-10 flex items-center justify-center">
-                <span className="font-semibold">
-                  {user.name ? user.name.substring(0, 2).toUpperCase() : "AM"}
-                </span>
-              </div>
-              <button 
-                onClick={handleLogout}
-                className="ml-4 text-sm bg-blue-700 hover:bg-blue-800 px-3 py-1 rounded-md transition-colors"
-              >
-                ออกจากระบบ
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* เนื้อหาหลัก */}
       <main className="container mx-auto p-4 md:p-6">
@@ -125,7 +145,9 @@ export default function Dashboard() {
             <h2 className="text-xl font-semibold mb-4 text-black">นักเรียนทั้งหมด</h2>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-3xl font-bold text-black">125</p>
+                <p className="text-3xl font-bold text-black">
+                  {classes.reduce((total, classItem) => total + (classItem.students_count || 0), 0)}
+                </p>
                 <p className="text-gray-600 text-black">คนที่ลงทะเบียนทั้งหมด</p>
               </div>
               <div className="bg-green-100 p-3 rounded-full">
@@ -156,6 +178,7 @@ export default function Dashboard() {
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-black">รายวิชาของฉัน</h2>
+            {/* แก้ไขลิงก์เพื่อให้นำไปที่หน้าเพิ่มรายวิชา */}
             <Link 
               href="/class/create" 
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
@@ -164,24 +187,35 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {classes.map((classItem) => (
-              <Link key={classItem.id} href={`/class/${classItem.id}`} className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
-                <div className="bg-blue-600 p-4 text-white">
-                  <h3 className="font-bold">{classItem.name}</h3>
-                  <p>{classItem.code}</p>
-                </div>
-                <div className="p-4">
-                  <p className="text-gray-600">ภาคเรียน: {classItem.term}</p>
-                  <p className="text-gray-600">นักเรียน: {classItem.students} คน</p>
-                  <div className="mt-4 flex justify-end">
-                    <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                      เปิดสอน
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-            <Link href="/class/create" className="flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 hover:bg-gray-100 transition">
+            {classes.length > 0 ? (
+              <>
+                {classes.map((classItem) => (
+                  <Link key={classItem.id} href={`/class/${classItem.id}`} className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
+                    <div className="bg-blue-600 p-4 text-white">
+                      <h3 className="font-bold">{classItem.name}</h3>
+                      <p>{classItem.code}</p>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-gray-600">ภาคเรียน: {classItem.semester}/{classItem.academic_year}</p>
+                      <p className="text-gray-600">นักเรียน: {classItem.students_count || 0} คน</p>
+                      <div className="mt-4 flex justify-end">
+                        <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${classItem.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {classItem.is_active ? 'เปิดสอน' : 'ปิดการสอน'}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </>
+            ) : (
+              <p className="text-gray-500 col-span-3 text-center py-8">ยังไม่มีรายวิชา</p>
+            )}
+            
+            {/* การ์ดเพิ่มรายวิชาใหม่ */}
+            <Link 
+              href="/class/create" 
+              className="flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 hover:bg-gray-100 transition"
+            >
               <div className="text-center">
                 <div className="mx-auto bg-gray-200 rounded-full p-3 h-12 w-12 flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
