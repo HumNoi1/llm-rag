@@ -1,4 +1,5 @@
 # backend/app/services/model_service.py
+import torch
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
@@ -34,9 +35,13 @@ class ModelService:
         """
         เตรียม Embeddings model จาก Hugging Face
         """
+        torch.manual_seed(42)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(42)
+        
         self.embeddings = HuggingFaceEmbeddings(
             model_name=EMBEDDING_MODEL_NAME,
-            model_kwargs={"device": "cpu"},  # เปลี่ยนเป็น "cuda" ถ้ามี GPU
+            model_kwargs={"device": "cpu", "seed": 42},  # เปลี่ยนเป็น "cuda" ถ้ามี GPU
             encode_kwargs={"normalize_embeddings": True}
         )
     
