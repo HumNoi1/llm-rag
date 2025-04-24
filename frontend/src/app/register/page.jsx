@@ -110,7 +110,6 @@ export default function RegisterPage() {
           data: {
             full_name: formData.fullName,
             academic_position: formData.academicPosition,
-            user_role: 'teacher', // กำหนดบทบาทเริ่มต้นเป็นอาจารย์
           }
         }
       });
@@ -119,22 +118,22 @@ export default function RegisterPage() {
         throw error;
       }
       
-      // เพิ่มข้อมูลเพิ่มเติมลงในตาราง profiles (ถ้ามี)
+      // บันทึกข้อมูลเพิ่มเติมลงในตาราง users
       if (data?.user?.id) {
-        const { error: profileError } = await supabase
-          .from('profiles')
+        const { error: userError } = await supabase
+          .from('users')
           .insert([
             { 
               id: data.user.id,
+              email: formData.email,
               full_name: formData.fullName,
               academic_position: formData.academicPosition,
-              email: formData.email,
-              created_at: new Date()
+              created_at: new Date().toISOString()
             }
           ]);
           
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
+        if (userError) {
+          console.error('Error creating user profile:', userError);
           // ไม่ throw error เพราะการสร้าง user สำเร็จแล้ว
         }
       }
@@ -166,6 +165,7 @@ export default function RegisterPage() {
       setIsSubmitting(false);
     }
   };
+  
 
   // แสดงข้อความสำเร็จหลังจากลงทะเบียน
   if (submitSuccess) {

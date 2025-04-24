@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
+import ClassCard from '@/components/ClassCard'; 
 import supabase from '@/lib/supabase';
 
 export default function Dashboard() {
@@ -25,6 +26,8 @@ export default function Dashboard() {
     // ตรวจสอบว่ามีการเข้าสู่ระบบหรือไม่
     const checkLoginStatus = async () => {
       try {
+        setLoading(true);
+        
         // ตรวจสอบจาก Supabase session
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -41,8 +44,13 @@ export default function Dashboard() {
           // ดึงข้อมูลรายวิชาจาก Supabase
           fetchClasses(session.user.id);
         } else {
-          // ถ้าไม่ได้เข้าสู่ระบบ ให้กลับไปที่หน้า login
-          router.push('/login');
+          // จำลองข้อมูลสำหรับการพัฒนา (จะลบออกเมื่อใช้งานจริง)
+          setIsLoggedIn(true);
+          setUser({ name: 'อาจารย์ ทดสอบ' });
+          
+          // จำลองข้อมูลสำหรับการพัฒนา
+          
+          setClasses(mockClasses);
         }
       } catch (error) {
         console.error('Error checking auth status:', error);
@@ -52,15 +60,14 @@ export default function Dashboard() {
     };
     
     checkLoginStatus();
-  }, [router]);
+  }, []);
 
   // ฟังก์ชันสำหรับดึงข้อมูลรายวิชาจาก Supabase
   const fetchClasses = async (userId) => {
     try {
       console.log('Fetching classes for user ID:', userId);
       
-      // ดึงข้อมูลจากตาราง classes โดยกรองตาม teacher_id
-      // หมายเหตุ: ถ้า RLS ปิดอยู่ ใช้การดึงทั้งหมดโดยไม่ต้องกรอง
+      // ดึงข้อมูลจากตาราง classes
       const { data, error } = await supabase
         .from('classes')
         .select('*');
@@ -97,7 +104,7 @@ export default function Dashboard() {
     }
   };
 
-  // แสดงหน้า loading ระหว่างตรวจสอบสถานะการเข้าสู่ระบบ
+  // แสดงหน้า loading
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#D8EAFE]">
@@ -117,12 +124,11 @@ export default function Dashboard() {
     return null;
   }
 
+  // แสดงหน้าแดชบอร์ด
   return (
     <div className="min-h-screen bg-[#F3F4F6]">
-      {/* พื้นที่ส่วนหัว */}
       <Header />
 
-      {/* เนื้อหาหลัก */}
       <main className="container mx-auto p-4 md:p-6">
         {/* ส่วนข้อมูลสรุป */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -178,7 +184,7 @@ export default function Dashboard() {
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-black">รายวิชาของฉัน</h2>
-            {/* แก้ไขลิงก์เพื่อให้นำไปที่หน้าเพิ่มรายวิชา */}
+            {/* ใช้ Link แทนปุ่มธรรมดา */}
             <Link 
               href="/class/create" 
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
@@ -187,50 +193,58 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* แสดงรายการรายวิชา */}
             {classes.length > 0 ? (
               <>
-                {classes.map((classItem) => (
-                  <Link key={classItem.id} href={`/class/${classItem.id}`} className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
-                    <div className="bg-blue-600 p-4 text-white">
-                      <h3 className="font-bold">{classItem.name}</h3>
-                      <p>{classItem.code}</p>
-                    </div>
-                    <div className="p-4">
-                      <p className="text-gray-600">ภาคเรียน: {classItem.semester}/{classItem.academic_year}</p>
-                      <p className="text-gray-600">นักเรียน: {classItem.students_count || 0} คน</p>
-                      <div className="mt-4 flex justify-end">
-                        <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${classItem.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                          {classItem.is_active ? 'เปิดสอน' : 'ปิดการสอน'}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
+                {classes.map(classItem => (
+                  <ClassCard key={classItem.id} classItem={classItem} />
                 ))}
+                
+                {/* การ์ดเพิ่มรายวิชาใหม่ */}
+                <Link 
+                  href="/class/create" 
+                  className="flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 hover:bg-gray-100 transition"
+                >
+                  <div className="text-center">
+                    <div className="mx-auto bg-gray-200 rounded-full p-3 h-12 w-12 flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </div>
+                    <p className="mt-2 text-gray-600">เพิ่มรายวิชาใหม่</p>
+                  </div>
+                </Link>
               </>
             ) : (
-              <p className="text-gray-500 col-span-3 text-center py-8">ยังไม่มีรายวิชา</p>
-            )}
-            
-            {/* การ์ดเพิ่มรายวิชาใหม่ */}
-            <Link 
-              href="/class/create" 
-              className="flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 hover:bg-gray-100 transition"
-            >
-              <div className="text-center">
-                <div className="mx-auto bg-gray-200 rounded-full p-3 h-12 w-12 flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
+              <>
+                <div className="col-span-3 text-center py-8">
+                  <p className="text-gray-500">ยังไม่มีรายวิชา</p>
                 </div>
-                <p className="mt-2 text-gray-600">เพิ่มรายวิชาใหม่</p>
-              </div>
-            </Link>
+                
+                {/* การ์ดเพิ่มรายวิชาใหม่สำหรับกรณีไม่มีรายวิชา */}
+                <div className="col-span-3 flex justify-center">
+                  <Link 
+                    href="/class/create" 
+                    className="flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 hover:bg-gray-100 transition max-w-xs w-full"
+                  >
+                    <div className="text-center">
+                      <div className="mx-auto bg-gray-200 rounded-full p-3 h-12 w-12 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      </div>
+                      <p className="mt-2 text-gray-600">เพิ่มรายวิชาใหม่</p>
+                    </div>
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* ส่วนกิจกรรมล่าสุด */}
         <div>
-          <h2 className="text-2xl font-bold mb-4">กิจกรรมล่าสุด</h2>
+          <h2 className="text-black mb-4">กิจกรรมล่าสุด</h2>
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full">
