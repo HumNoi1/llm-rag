@@ -88,8 +88,14 @@ export default function CreateClassPage() {
     setIsSubmitting(true);
     
     try {
-      // นำเข้า supabase client
-      const supabase = (await import('@/lib/supabase')).default;
+      // ตรวจสอบข้อมูลผู้ใช้ปัจจุบัน
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('กรุณาเข้าสู่ระบบก่อนสร้างรายวิชา');
+      }
+      
+      const teacherId = session.user.id;
       
       // สร้างข้อมูลรายวิชาที่จะบันทึกลง Supabase
       const classData = {
@@ -99,14 +105,14 @@ export default function CreateClassPage() {
         academic_year: formData.year,
         description: formData.description || null,
         is_active: formData.isActive,
+        students_count: 0, // เริ่มต้นยังไม่มีนักเรียน
         created_at: new Date().toISOString(),
-        teacher_id: localStorage.getItem('userId') || null, // ถ้ามีการเก็บ userId ใน localStorage
-        students_count: 0 // เริ่มต้นยังไม่มีนักเรียน
+        teacher_id: teacherId
       };
       
-      // บันทึกข้อมูลลงใน Supabase
+      // บันทึกข้อมูลลงในตาราง classes
       const { data, error } = await supabase
-        .from('classes') // ชื่อตาราง 'classes' ใน Supabase
+        .from('classes')
         .insert([classData])
         .select();
       
@@ -121,7 +127,7 @@ export default function CreateClassPage() {
       
       // นำทางไปยังหน้า Dashboard หลังจาก 2 วินาที
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        router.push('/dashboard');
       }, 2000);
       
     } catch (error) {
@@ -131,7 +137,7 @@ export default function CreateClassPage() {
       setIsSubmitting(false);
     }
   };
-
+  
   // สร้างตัวเลือกปีการศึกษา
   const generateYearOptions = () => {
     const currentYear = new Date().getFullYear() + 543; // แปลงเป็น พ.ศ.
@@ -244,7 +250,7 @@ export default function CreateClassPage() {
                 <option value="">-- เลือกภาคเรียน --</option>
                 <option value="1">ภาคเรียนที่ 1</option>
                 <option value="2">ภาคเรียนที่ 2</option>
-                <option value="3">ภาคฤดูร้อน</option>
+                <option value="3">Summer</option>
               </select>
               {errors.semester && <p className="mt-1 text-sm text-red-600">{errors.semester}</p>}
             </div>

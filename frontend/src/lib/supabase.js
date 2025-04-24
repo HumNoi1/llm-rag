@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // ตั้งค่า Supabase client
-const supabaseUrl = 'https://sexmxxatzrhtrmqiacjn.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNleG14eGF0enJodHJtcWlhY2puIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3NTk1MTcsImV4cCI6MjA1NzMzNTUxN30.bvgv9shuBt91MNsiG_PGVYD9FNArp9ZFnqZx_MN9WxU';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-supabase-url.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
 
 // ตรวจสอบว่าตัวแปรสิ่งแวดล้อมถูกกำหนดค่าหรือไม่ในโหมด development
 if (process.env.NODE_ENV !== 'production' && (!supabaseUrl || !supabaseAnonKey)) {

@@ -49,12 +49,7 @@ export default function Dashboard() {
           setUser({ name: 'อาจารย์ ทดสอบ' });
           
           // จำลองข้อมูลสำหรับการพัฒนา
-          const mockClasses = [
-            { id: 1, name: 'วิศวกรรมซอฟต์แวร์', code: 'SW101', semester: '1', academic_year: '2566', students_count: 45, is_active: true },
-            { id: 2, name: 'การวิเคราะห์และออกแบบเชิงวัตถุ', code: 'SW201', semester: '1', academic_year: '2566', students_count: 38, is_active: true },
-            { id: 3, name: 'การพัฒนาเว็บแอปพลิเคชัน', code: 'SW301', semester: '1', academic_year: '2566', students_count: 42, is_active: true },
-            { id: 4, name: 'คติดิจฯ', code: '0024', semester: '1', academic_year: '2568', students_count: 0, is_active: true },
-          ];
+          
           setClasses(mockClasses);
         }
       } catch (error) {
@@ -249,7 +244,7 @@ export default function Dashboard() {
 
         {/* ส่วนกิจกรรมล่าสุด */}
         <div>
-          <h2 className="text-2xl font-bold mb-4">กิจกรรมล่าสุด</h2>
+          <h2 className="text-black mb-4">กิจกรรมล่าสุด</h2>
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full">
