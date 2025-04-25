@@ -1,14 +1,14 @@
 // frontend/src/app/register/page.jsx
 "use client";
 
-import { useState } from 'react';
-import Image from 'next/image';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import supabase from '@/lib/supabase'; // นำเข้า supabase client
+import { useAuth } from '@/context/AuthContext';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { register, isAuthenticated, loading } = useAuth();
   
   // สร้าง state สำหรับเก็บข้อมูลฟอร์ม
   const [formData, setFormData] = useState({
@@ -17,6 +17,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     academicPosition: '',
+    acceptTerms: false
   });
   
   // สร้าง state สำหรับการแสดงข้อความผิดพลาด
@@ -25,12 +26,19 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
+  // Redirect ถ้าล็อกอินแล้ว
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [loading, isAuthenticated, router]);
+
   // ฟังก์ชันสำหรับรับค่าจาก input fields
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     });
     
     // ล้างข้อความผิดพลาดเมื่อผู้ใช้แก้ไขข้อมูล
@@ -87,6 +95,12 @@ export default function RegisterPage() {
       formIsValid = false;
     }
 
+    // ตรวจสอบการยอมรับเงื่อนไข
+    if (!formData.acceptTerms) {
+      tempErrors.acceptTerms = "กรุณายอมรับเงื่อนไขการใช้งาน";
+      formIsValid = false;
+    }
+
     setErrors(tempErrors);
     return formIsValid;
   };
@@ -102,40 +116,21 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     
     try {
-      // เรียกใช้ API ของ Supabase สำหรับการลงทะเบียน
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            academic_position: formData.academicPosition,
-          }
-        }
-      });
+      // สร้างข้อมูล user metadata
+      const userData = {
+        full_name: formData.fullName,
+        academic_position: formData.academicPosition,
+      };
       
-      if (error) {
+      // เรียกใช้ register จาก context
+      const { success, error } = await register(
+        formData.email, 
+        formData.password, 
+        userData
+      );
+      
+      if (!success) {
         throw error;
-      }
-      
-      // บันทึกข้อมูลเพิ่มเติมลงในตาราง users
-      if (data?.user?.id) {
-        const { error: userError } = await supabase
-          .from('users')
-          .insert([
-            { 
-              id: data.user.id,
-              email: formData.email,
-              full_name: formData.fullName,
-              academic_position: formData.academicPosition,
-              created_at: new Date().toISOString()
-            }
-          ]);
-          
-        if (userError) {
-          console.error('Error creating user profile:', userError);
-          // ไม่ throw error เพราะการสร้าง user สำเร็จแล้ว
-        }
       }
       
       // แสดงข้อความสำเร็จ
@@ -148,6 +143,7 @@ export default function RegisterPage() {
         password: '',
         confirmPassword: '',
         academicPosition: '',
+        acceptTerms: false
       });
       
     } catch (error) {
@@ -165,7 +161,21 @@ export default function RegisterPage() {
       setIsSubmitting(false);
     }
   };
-  
+
+  // ถ้ากำลังโหลดข้อมูล auth
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#D8EAFE]">
+        <div className="text-center">
+          <svg className="animate-spin h-10 w-10 mx-auto mb-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-gray-700">กำลังโหลด...</p>
+        </div>
+      </div>
+    );
+  }
 
   // แสดงข้อความสำเร็จหลังจากลงทะเบียน
   if (submitSuccess) {
@@ -225,12 +235,13 @@ export default function RegisterPage() {
             {/* ชื่อ-นามสกุล */}
             <div className="mb-4">
               <label htmlFor="fullName" className="block text-sm font-medium text-[#333333] mb-1">
-                ชื่อ-นามสกุล
+                ชื่อ-นามสกุล <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 id="fullName"
                 name="fullName"
+                placeholder="เช่น ดร. สมชาย ใจดี"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-black font-medium ${
                   errors.fullName ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
                 }`}
@@ -243,12 +254,13 @@ export default function RegisterPage() {
             {/* อีเมล */}
             <div className="mb-4">
               <label htmlFor="email" className="block text-sm font-medium text-[#333333] mb-1">
-                อีเมล
+                อีเมล <span className="text-red-500">*</span>
               </label>
               <input
                 type="email"
                 id="email"
                 name="email"
+                placeholder="example@university.ac.th"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-black font-medium ${
                   errors.email ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
                 }`}
@@ -261,7 +273,7 @@ export default function RegisterPage() {
             {/* ตำแหน่งทางวิชาการ */}
             <div className="mb-4">
               <label htmlFor="academicPosition" className="block text-sm font-medium text-[#333333] mb-1">
-                ตำแหน่งทางวิชาการ
+                ตำแหน่งทางวิชาการ <span className="text-red-500">*</span>
               </label>
               <select
                 id="academicPosition"
@@ -272,7 +284,7 @@ export default function RegisterPage() {
                 value={formData.academicPosition}
                 onChange={handleChange}
               >
-                <option value="" className="text-gray-800">-- เลือกตำแหน่ง --</option>
+                <option value="" className="text-gray-500">-- เลือกตำแหน่ง --</option>
                 <option value="อาจารย์" className="text-black">อาจารย์</option>
                 <option value="ผู้ช่วยศาสตราจารย์" className="text-black">ผู้ช่วยศาสตราจารย์</option>
                 <option value="รองศาสตราจารย์" className="text-black">รองศาสตราจารย์</option>
@@ -284,7 +296,7 @@ export default function RegisterPage() {
             {/* รหัสผ่าน */}
             <div className="mb-4">
               <label htmlFor="password" className="block text-sm font-medium text-[#333333] mb-1">
-                รหัสผ่าน
+                รหัสผ่าน <span className="text-red-500">*</span>
               </label>
               <input
                 type="password"
@@ -297,12 +309,13 @@ export default function RegisterPage() {
                 onChange={handleChange}
               />
               {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+              <p className="text-xs text-gray-500 mt-1">รหัสผ่านควรมีอย่างน้อย 8 ตัวอักษร</p>
             </div>
             
             {/* ยืนยันรหัสผ่าน */}
             <div className="mb-6">
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-[#333333] mb-1">
-                ยืนยันรหัสผ่าน
+                ยืนยันรหัสผ่าน <span className="text-red-500">*</span>
               </label>
               <input
                 type="password"
@@ -326,7 +339,7 @@ export default function RegisterPage() {
                   name="acceptTerms"
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   checked={formData.acceptTerms}
-                  onChange={(e) => setFormData({...formData, acceptTerms: e.target.checked})}
+                  onChange={handleChange}
                 />
                 <label htmlFor="acceptTerms" className="ml-2 block text-sm text-gray-700">
                   ยอมรับ <a href="#" className="text-blue-600 hover:underline">เงื่อนไขการใช้งาน</a> และ <a href="#" className="text-blue-600 hover:underline">นโยบายความเป็นส่วนตัว</a>
@@ -338,10 +351,18 @@ export default function RegisterPage() {
             {/* ปุ่มลงทะเบียน */}
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 mb-4 disabled:bg-blue-300"
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 mb-4 disabled:bg-blue-300 flex justify-center items-center"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'กำลังดำเนินการ...' : 'ลงทะเบียน'}
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  กำลังดำเนินการ...
+                </>
+              ) : 'ลงทะเบียน'}
             </button>
             
             {/* ลิงก์ไปหน้าล็อกอิน */}

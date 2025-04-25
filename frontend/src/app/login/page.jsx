@@ -1,11 +1,14 @@
+// frontend/src/app/login/page.jsx
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
-  const router = useRouter(); // เพิ่ม router เพื่อใช้ในการนำทาง
+  const router = useRouter();
+  const { login, isAuthenticated, loading } = useAuth();
   
   // สร้าง state สำหรับเก็บข้อมูลฟอร์ม
   const [formData, setFormData] = useState({
@@ -18,6 +21,13 @@ export default function LoginPage() {
   const [errors, setErrors] = useState({});
   // สร้าง state สำหรับการแสดงสถานะการเข้าสู่ระบบ
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Redirect ถ้าล็อกอินแล้ว
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [loading, isAuthenticated, router]);
 
   // ฟังก์ชันสำหรับรับค่าจาก input fields
   const handleChange = (e) => {
@@ -72,33 +82,14 @@ export default function LoginPage() {
     setIsSubmitting(true);
     
     try {
-      // ในอนาคตจะส่งข้อมูลไปยัง API
-      // const response = await fetch('/api/login', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(formData),
-      // });
+      // เรียกใช้ login จาก context
+      const { success, error } = await login(formData.email, formData.password);
       
-      // จำลองการส่งข้อมูลสำเร็จ
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!success) {
+        throw error;
+      }
       
-      // if (!response.ok) {
-      //   throw new Error('ไม่สามารถเข้าสู่ระบบได้');
-      // }
-      
-      console.log('Login successful', formData);
-      
-      // เก็บข้อมูลใน localStorage เพื่อจำลองการเข้าสู่ระบบ
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('user', JSON.stringify({
-        name: 'อาจารย์ มหาวิทยาลัย',
-        email: formData.email
-      }));
-      
-      // นำทางไปยังหน้า Dashboard
-      router.push('/dashboard');
+      // ถ้าล็อกอินสำเร็จจะมีการ redirect ใน useEffect
       
     } catch (error) {
       console.error('Login error:', error);
@@ -107,6 +98,21 @@ export default function LoginPage() {
       setIsSubmitting(false);
     }
   };
+
+  // ถ้ากำลังโหลดข้อมูล auth
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#D8EAFE]">
+        <div className="text-center">
+          <svg className="animate-spin h-10 w-10 mx-auto mb-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-gray-700">กำลังโหลด...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row bg-[#D8EAFE]">
