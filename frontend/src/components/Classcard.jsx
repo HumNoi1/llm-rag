@@ -1,7 +1,7 @@
+// frontend/src/components/Classcard.jsx
 "use client";
 
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 // คอมโพเนนต์สำหรับการ์ดรายวิชาที่แสดงในหน้าแดชบอร์ด
 export default function ClassCard({ classItem }) {
@@ -10,7 +10,6 @@ export default function ClassCard({ classItem }) {
   // ฟังก์ชันจัดการเมื่อคลิกที่การ์ดรายวิชา
   const handleClick = () => {
     // ใช้ router.push เพื่อนำทางไปยังหน้ารายละเอียดรายวิชา
-    // ต้องแน่ใจว่า id มีค่าและเป็นสตริง
     if (classItem && classItem.id) {
       router.push(`/class/${classItem.id}`);
     } else {
