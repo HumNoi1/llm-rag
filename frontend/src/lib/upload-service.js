@@ -1,5 +1,6 @@
 // frontend/src/lib/upload-service.js
 import supabase from './supabase';
+import { STORAGE_BUCKETS } from './storage-config';
 
 /**
  * อัปโหลดไฟล์ไปยัง Supabase Storage
@@ -11,45 +12,48 @@ import supabase from './supabase';
  */
 export const uploadFile = async (file, bucket, folder = '', onProgress = null) => {
   try {
-    if (!file || !bucket) {
-      throw new Error('ไฟล์หรือชื่อ bucket ไม่ถูกต้อง');
+    if (!file) {
+      return {
+        success: false,
+        error: 'ไม่พบไฟล์ที่ต้องการอัปโหลด'
+      };
     }
 
-    // สร้าง unique filename ด้วย timestamp และชื่อไฟล์เดิม
-    const timestamp = new Date().getTime();
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${timestamp}_${file.name}`;
+    // ตรวจสอบชื่อไฟล์ให้ปลอดภัย
+    const fileName = file.name;
+    
+    // ตรวจสอบว่าชื่อไฟล์มีเฉพาะตัวอักษร a-z, A-Z, 0-9, ., _, - เท่านั้น
+    if (!/^[a-zA-Z0-9._-]+$/.test(fileName)) {
+      console.warn('ชื่อไฟล์ไม่ปลอดภัย:', fileName);
+      return {
+        success: false,
+        error: 'ชื่อไฟล์มีอักขระพิเศษที่ไม่รองรับ กรุณาใช้ภาษาอังกฤษและตัวเลขเท่านั้น'
+      };
+    }
     
     // กำหนด path ในการเก็บไฟล์
     const filePath = folder ? `${folder}/${fileName}` : fileName;
     
-    // กำหนด options สำหรับการอัปโหลด
-    const uploadOptions = {
-      cacheControl: '3600',
-      upsert: false
-    };
-    
-    // เพิ่ม onUploadProgress ถ้ามีการระบุ
-    if (onProgress && typeof onProgress === 'function') {
-      uploadOptions.onUploadProgress = (progress) => {
-        // คำนวณเปอร์เซ็นต์ความคืบหน้า
-        const percent = Math.round((progress.loaded / progress.total) * 100);
-        onProgress(percent);
-      };
-    }
+    console.log('กำลังอัปโหลดไฟล์ไปที่:', bucket, filePath);
     
     // อัปโหลดไฟล์ไปยัง Supabase Storage
     const { data, error } = await supabase.storage
       .from(bucket)
-      .upload(filePath, file, uploadOptions);
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        onUploadProgress: onProgress ? (progress) => {
+          const percent = Math.round((progress.loaded / progress.total) * 100);
+          onProgress(percent);
+        } : undefined
+      });
     
     if (error) {
-      console.error('Supabase storage upload error details:', JSON.stringify(error));
-      throw new Error(`อัปโหลดไฟล์ล้มเหลว: ${error.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'}`);
-    }
-    
-    if (!data) {
-      throw new Error('อัปโหลดสำเร็จแต่ไม่ได้รับข้อมูลผลลัพธ์');
+      console.error('Error uploading file:', error);
+      return {
+        success: false,
+        error: error.message || 'ไม่สามารถอัปโหลดไฟล์ได้'
+      };
     }
     
     // สร้าง public URL สำหรับไฟล์
@@ -57,22 +61,18 @@ export const uploadFile = async (file, bucket, folder = '', onProgress = null) =
       .from(bucket)
       .getPublicUrl(filePath);
     
-    if (!publicUrlData || !publicUrlData.publicUrl) {
-      console.warn('ไม่สามารถสร้าง public URL ได้');
-    }
-    
     return {
       success: true,
       data: {
         ...data,
         publicUrl: publicUrlData?.publicUrl || '',
+        path: filePath,
         fileName: fileName,
-        originalName: file.name,
-        path: filePath
+        originalName: file.originalName || file.name
       }
     };
   } catch (error) {
-    console.error('Error uploading file:', error.message || error);
+    console.error('Error uploading file:', error);
     return {
       success: false,
       error: error.message || 'ไม่สามารถอัปโหลดไฟล์ได้'
@@ -81,91 +81,121 @@ export const uploadFile = async (file, bucket, folder = '', onProgress = null) =
 };
 
 /**
- * ตรวจสอบว่า bucket มีอยู่จริงหรือไม่
- * @param {string} bucket - ชื่อ bucket ที่ต้องการตรวจสอบ
- * @returns {Promise<boolean>} ผลการตรวจสอบ
+ * อัปโหลดไฟล์ไปยัง Supabase Storage พร้อมตรวจสอบและสร้าง bucket ถ้าจำเป็น
+ * @param {File} file - ไฟล์ที่ต้องการอัปโหลด
+ * @param {string} bucket - ชื่อ bucket ที่ต้องการเก็บไฟล์
+ * @param {string} folder - โฟลเดอร์ใน bucket (ถ้ามี)
+ * @param {Function} onProgress - callback สำหรับการแสดงความคืบหน้า (optional)
+ * @returns {Promise<Object>} ข้อมูลไฟล์ที่อัปโหลด
  */
-export const checkBucketExists = async (bucket) => {
-  try {
-    const { data, error } = await supabase.storage.getBucket(bucket);
-    
-    if (error || !data) {
-      console.warn(`Bucket '${bucket}' ไม่มีอยู่หรือไม่สามารถเข้าถึงได้`);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error(`Error checking bucket '${bucket}':`, error);
-    return false;
-  }
-};
-
-/**
- * สร้าง bucket ใหม่ถ้าไม่มีอยู่
- * @param {string} bucket - ชื่อ bucket ที่ต้องการสร้าง
- * @param {boolean} isPublic - กำหนดให้ bucket เป็น public หรือไม่
- * @returns {Promise<boolean>} ผลการสร้าง bucket
- */
-export const createBucketIfNotExists = async (bucket, isPublic = true) => {
+export const uploadFileWithBucketCreation = async (file, bucket, folder = '', onProgress = null) => {
   try {
     // ตรวจสอบว่า bucket มีอยู่แล้วหรือไม่
-    const exists = await checkBucketExists(bucket);
+    const bucketExists = await checkBucketExists(bucket);
     
-    if (exists) {
-      console.log(`Bucket '${bucket}' มีอยู่แล้ว`);
-      return true;
+    // สร้าง bucket ถ้ายังไม่มี
+    if (!bucketExists) {
+      const bucketCreated = await createBucket(bucket, {
+        public: true // ตั้งค่าให้เป็น public bucket
+      });
+      
+      if (!bucketCreated) {
+        console.warn(`ไม่สามารถสร้าง bucket "${bucket}" ได้ แต่จะพยายามอัปโหลดไฟล์ต่อไป`);
+      }
     }
     
-    // สร้าง bucket ใหม่
-    const { data, error } = await supabase.storage.createBucket(bucket, {
-      public: isPublic,
-      fileSizeLimit: 10485760, // 10MB
-    });
-    
-    if (error) {
-      console.error(`ไม่สามารถสร้าง bucket '${bucket}' ได้:`, error);
-      return false;
-    }
-    
-    console.log(`สร้าง bucket '${bucket}' สำเร็จ`);
-    return true;
+    // อัปโหลดไฟล์โดยใช้ฟังก์ชัน uploadFile ที่มีอยู่แล้ว
+    return await uploadFile(file, bucket, folder, onProgress);
   } catch (error) {
-    console.error(`Error creating bucket '${bucket}':`, error);
+    console.error('Error in uploadFileWithBucketCreation:', error);
+    return {
+      success: false,
+      error: error.message || 'ไม่สามารถอัปโหลดไฟล์ได้'
+    };
+  }
+};
+
+/**
+ * ตรวจสอบการเชื่อมต่อกับ Supabase
+ * @returns {Promise<boolean>} สถานะการเชื่อมต่อ
+ */
+export const checkSupabaseConnection = async () => {
+  try {
+    // ทดสอบการเชื่อมต่อด้วยการดึงข้อมูล bucket
+    const { data, error } = await supabase.storage.listBuckets();
+    return !error;
+  } catch (error) {
+    console.error('ไม่สามารถเชื่อมต่อกับ Supabase ได้:', error);
     return false;
   }
 };
 
 /**
- * ลบไฟล์จาก Supabase Storage
- * @param {string} filePath - path ของไฟล์ที่ต้องการลบ
- * @param {string} bucket - ชื่อ bucket ที่เก็บไฟล์
- * @returns {Promise<Object>} ผลการลบไฟล์
+ * ดึงรายการ buckets ทั้งหมด
+ * @returns {Promise<Array>} รายการ buckets
  */
-export const deleteFile = async (filePath, bucket) => {
+export const listAllBuckets = async () => {
   try {
-    if (!filePath || !bucket) {
-      throw new Error('path ของไฟล์หรือชื่อ bucket ไม่ถูกต้อง');
-    }
-    
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .remove([filePath]);
+    const { data, error } = await supabase.storage.listBuckets();
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('ไม่สามารถดึงรายการ buckets ได้:', error);
+    return [];
+  }
+};
+
+/**
+ * ตรวจสอบว่า bucket มีอยู่หรือไม่
+ * @param {string} bucketName - ชื่อ bucket ที่ต้องการตรวจสอบ
+ * @returns {Promise<boolean>} สถานะการมีอยู่ของ bucket
+ */
+export const checkBucketExists = async (bucketName) => {
+  try {
+    // ลองดึงรายการไฟล์จาก bucket เพื่อตรวจสอบว่ามีอยู่หรือไม่
+    const { data: buckets } = await supabase.storage.listBuckets();
+    return buckets.some(bucket => bucket.name === bucketName);
+  } catch (error) {
+    console.error(`ไม่สามารถตรวจสอบ bucket "${bucketName}" ได้:`, error);
+    return false;
+  }
+};
+
+/**
+ * สร้าง bucket ใหม่
+ * @param {string} bucketName - ชื่อ bucket ที่ต้องการสร้าง
+ * @param {Object} options - ตัวเลือกสำหรับ bucket
+ * @returns {Promise<boolean>} สถานะการสร้าง bucket
+ */
+export const createBucket = async (bucketName, options = {}) => {
+  try {
+    const { data, error } = await supabase.storage.createBucket(bucketName, options);
     
     if (error) {
-      console.error('Supabase storage delete error details:', JSON.stringify(error));
-      throw new Error(`ลบไฟล์ล้มเหลว: ${error.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'}`);
+      console.error(`ไม่สามารถสร้าง bucket "${bucketName}" ได้:`, error);
+      return false;
     }
     
-    return {
-      success: true,
-      data
-    };
+    return true;
   } catch (error) {
-    console.error('Error deleting file:', error.message || error);
-    return {
-      success: false,
-      error: error.message || 'ไม่สามารถลบไฟล์ได้'
-    };
+    console.error(`ไม่สามารถสร้าง bucket "${bucketName}" ได้:`, error);
+    return false;
+  }
+};
+
+/**
+ * ดึงรายการไฟล์ใน bucket
+ * @param {string} bucketName - ชื่อ bucket
+ * @param {string} path - path ในการค้นหา
+ * @returns {Promise<Array>} รายการไฟล์
+ */
+export const listFiles = async (bucketName, path = '') => {
+  try {
+    const { data, error } = await supabase.storage.from(bucketName).list(path);
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error(`ไม่สามารถดึงรายการไฟล์จาก bucket "${bucketName}" ได้:`, error);
+    return [];
   }
 };
