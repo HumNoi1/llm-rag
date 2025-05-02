@@ -2,15 +2,24 @@
 import { createClient } from '@supabase/supabase-js';
 
 // ตั้งค่า Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-supabase-url.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// ตรวจสอบว่าตัวแปรสิ่งแวดล้อมถูกกำหนดค่าหรือไม่ในโหมด development
-if (process.env.NODE_ENV !== 'production' && (!supabaseUrl || !supabaseAnonKey)) {
-  console.warn('⚠️ กรุณาตั้งค่า NEXT_PUBLIC_SUPABASE_URL และ NEXT_PUBLIC_SUPABASE_ANON_KEY ในไฟล์ .env.local');
+// ตรวจสอบว่าตัวแปรสภาพแวดล้อมถูกกำหนดค่าหรือไม่
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('⚠️ Supabase URL or Anon Key is missing. Using fallback values.');
 }
 
 // สร้าง Supabase client
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(
+  supabaseUrl || 'https://your-supabase-url.supabase.co',
+  supabaseAnonKey || 'your-anon-key',
+  {
+    auth: {
+      persistSession: true, // จัดเก็บ session ใน local storage
+      autoRefreshToken: true, // ต่ออายุ token โดยอัตโนมัติ
+    }
+  }
+);
 
 export default supabase;
