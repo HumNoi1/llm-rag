@@ -104,7 +104,7 @@ export default function Dashboard() {
                       <p className="text-3xl font-bold text-black">
                         {classes.reduce((total, classItem) => total + (classItem.students_count || 0), 0)}
                       </p>
-                      <p className="text-gray-600 text-black">คนที่ลงทะเบียนทั้งหมด</p>
+                      <p className="text-black">คนที่ลงทะเบียนทั้งหมด</p>
                     </div>
                     <div className="bg-green-100 p-3 rounded-full">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
