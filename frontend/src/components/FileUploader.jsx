@@ -1,19 +1,10 @@
+// frontend/src/components/FileUploader.jsx
 "use client";
 
 import { useState } from 'react';
-import { validateFile } from '@/lib/storage-config';
 
 /**
  * คอมโพเนนต์สำหรับอัปโหลดไฟล์
- * @param {Object} props - Props สำหรับคอมโพเนนต์
- * @param {function} props.onFileChange - ฟังก์ชันที่จะเรียกเมื่อมีการเลือกไฟล์
- * @param {string} props.accept - ประเภทไฟล์ที่รับ (e.g. ".pdf,.docx")
- * @param {string} props.fileCategory - หมวดหมู่ไฟล์สำหรับตรวจสอบ (PDF, IMAGE, DOCUMENT)
- * @param {string} props.fileType - ประเภทไฟล์สำหรับตรวจสอบขนาด (PDF, IMAGE, ATTACHMENT)
- * @param {string} props.label - ข้อความแสดงบนป้ายกำกับ
- * @param {boolean} props.required - บังคับให้เลือกไฟล์หรือไม่
- * @param {string} props.id - ID สำหรับ input
- * @param {string} props.name - ชื่อสำหรับ input
  */
 export default function FileUploader({
   onFileChange,
@@ -29,6 +20,27 @@ export default function FileUploader({
   const [file, setFile] = useState(null);
   const [error, setError] = useState("");
 
+  // ฟังก์ชันตรวจสอบไฟล์ (ฝังอยู่ในคอมโพเนนต์แทนการ import)
+  const validateFile = (file) => {
+    if (!file) {
+      return { valid: false, error: "กรุณาเลือกไฟล์" };
+    }
+    
+    // ตรวจสอบประเภทไฟล์ PDF
+    if (fileCategory === "PDF" && file.type !== "application/pdf") {
+      return { valid: false, error: "กรุณาอัปโหลดไฟล์ PDF เท่านั้น" };
+    }
+    
+    // ตรวจสอบขนาดไฟล์ (ไม่เกิน 10MB)
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSizeBytes) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      return { valid: false, error: `ไฟล์มีขนาดใหญ่เกินไป (${fileSizeMB} MB, ขนาดสูงสุด 10MB)` };
+    }
+    
+    return { valid: true };
+  };
+
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     
@@ -40,7 +52,7 @@ export default function FileUploader({
     }
     
     // ตรวจสอบไฟล์
-    const validation = validateFile(selectedFile, fileCategory, fileType);
+    const validation = validateFile(selectedFile);
     
     if (validation.valid) {
       setFile(selectedFile);

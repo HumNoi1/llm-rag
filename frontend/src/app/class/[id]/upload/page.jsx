@@ -1,16 +1,20 @@
+// frontend/src/app/class/[id]/upload/page.jsx
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import { PrimaryButtonLink } from '@/components/ui/NavLink';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import supabase from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { uploadFile, validatePdfFile, saveUploadInfo, STORAGE_BUCKETS } from '@/lib/upload-service';
+import FileUploader from '@/components/FileUploader';
 
-// ตั้งค่า API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// กำหนดชื่อ bucket สำหรับเก็บไฟล์ใน Supabase Storage
+const STORAGE_BUCKETS = {
+  ANSWER_KEYS: 'answer-keys',
+  STUDENT_ANSWERS: 'student-answer'
+};
 
 export default function UploadFilesPage() {
   const router = useRouter();
@@ -18,9 +22,12 @@ export default function UploadFilesPage() {
   const classId = params.id;
   const { user } = useAuth();
 
-  // สถานะสำหรับข้อมูลรายวิชา
-  const [classInfo, setClassInfo] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // กำหนดข้อมูลรายวิชาเริ่มต้นแทนการโหลดข้อมูล
+  const [classInfo] = useState({
+    id: classId,
+    name: 'รายวิชา',
+    code: 'CODE',
+  });
 
   // สถานะสำหรับการอัปโหลดไฟล์
   const [answerKeyFile, setAnswerKeyFile] = useState(null);
@@ -32,79 +39,22 @@ export default function UploadFilesPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
-  // ดึงข้อมูลรายวิชาเมื่อโหลดหน้า (จัดการกรณีเกิด RLS)
-  useEffect(() => {
-    async function fetchClassInfo() {
-      try {
-        if (!user) return;
-        
-        setLoading(true);
-        
-        try {
-          // พยายามดึงข้อมูลโดยตรงจาก Supabase
-          const { data, error } = await supabase
-            .from('classes')
-            .select('*')
-            .eq('id', classId)
-            .eq('teacher_id', user.id)
-            .single();
-
-          if (error) {
-            throw error;
-          }
-
-          setClassInfo(data);
-        } catch (supabaseError) {
-          console.warn('Could not fetch class info due to RLS:', supabaseError);
-          
-          // ใช้ข้อมูลจำลองในกรณีที่ไม่สามารถดึงข้อมูลจาก Supabase ได้ (เช่น กรณี RLS)
-          setClassInfo({
-            id: classId,
-            name: 'รายวิชา',
-            code: 'CODE',
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching class info:', error);
-        setUploadError('ไม่สามารถดึงข้อมูลรายวิชาได้');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (classId && user) {
-      fetchClassInfo();
-    }
-  }, [classId, user]);
-
   // จัดการเมื่อเลือกไฟล์เฉลย
-  const handleAnswerKeyChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const validation = validatePdfFile(file);
-    if (!validation.valid) {
-      setAnswerKeyFile(null);
-      setUploadError(validation.error);
+  const handleAnswerKeyChange = (file, error) => {
+    if (error) {
+      setUploadError(error);
       return;
     }
-    
     setAnswerKeyFile(file);
     setUploadError('');
   };
 
   // จัดการเมื่อเลือกไฟล์คำตอบนักเรียน
-  const handleStudentAnswerChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const validation = validatePdfFile(file);
-    if (!validation.valid) {
-      setStudentAnswerFile(null);
-      setUploadError(validation.error);
+  const handleStudentAnswerChange = (file, error) => {
+    if (error) {
+      setUploadError(error);
       return;
     }
-    
     setStudentAnswerFile(file);
     setUploadError('');
   };
@@ -114,6 +64,32 @@ export default function UploadFilesPage() {
     // ล้างอักขระที่ไม่ควรมีใน ID
     const sanitizedValue = e.target.value.replace(/[^a-zA-Z0-9_-]/g, '');
     setQuestionId(sanitizedValue);
+  };
+
+  // จำลองการอัปโหลดไฟล์ (ไม่ใช้ Supabase จริง)
+  const uploadToStorage = async (file, bucket, folder) => {
+    // จำลองการอัปโหลด
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // สร้างชื่อไฟล์ที่ไม่ซ้ำกัน
+    const timestamp = new Date().getTime();
+    const extension = file.name.split('.').pop().toLowerCase();
+    const safeFileName = `file_${timestamp}.${extension}`;
+    
+    // สร้าง path ที่จะใช้เก็บข้อมูล
+    const filePath = `${folder}/${safeFileName}`;
+    
+    console.log(`จำลองการอัปโหลดไฟล์ ${file.name} ไปยัง bucket: ${bucket}, path: ${filePath}`);
+    
+    // จำลองข้อมูลที่จะส่งกลับ
+    return {
+      path: filePath,
+      publicUrl: `https://example.com/storage/${bucket}/${filePath}`,
+      originalName: file.name,
+      fileName: safeFileName,
+      fileSize: file.size,
+      fileType: file.type
+    };
   };
 
   // ส่งฟอร์มเพื่ออัปโหลดไฟล์ทั้งหมด
@@ -144,69 +120,49 @@ export default function UploadFilesPage() {
       // กำหนดโฟลเดอร์สำหรับเก็บไฟล์
       const folderPath = `${classId}/${questionId}`;
       
-      // 1. อัปโหลดไฟล์เฉลย (แบบข้าม RLS)
+      // 1. อัปโหลดไฟล์เฉลย
       setUploadStatus('กำลังอัปโหลดไฟล์เฉลย...');
       setUploadProgress(20);
       
-      const answerKeyResult = await uploadFile(
+      const answerKeyResult = await uploadToStorage(
         answerKeyFile,
         STORAGE_BUCKETS.ANSWER_KEYS,
-        folderPath,
-        (progress) => setUploadProgress(20 + progress * 40)
+        folderPath
       );
       
-      if (!answerKeyResult.success) {
-        throw new Error(`ไม่สามารถอัปโหลดไฟล์เฉลยได้: ${answerKeyResult.error}`);
-      }
+      setUploadProgress(50);
       
-      // 2. อัปโหลดไฟล์คำตอบนักเรียน (แบบข้าม RLS)
+      // 2. อัปโหลดไฟล์คำตอบนักเรียน
       setUploadStatus('กำลังอัปโหลดไฟล์คำตอบนักเรียน...');
-      setUploadProgress(60);
       
-      const studentAnswerResult = await uploadFile(
+      const studentAnswerResult = await uploadToStorage(
         studentAnswerFile,
         STORAGE_BUCKETS.STUDENT_ANSWERS,
-        folderPath,
-        (progress) => setUploadProgress(60 + progress * 30)
+        folderPath
       );
       
-      if (!studentAnswerResult.success) {
-        throw new Error(`ไม่สามารถอัปโหลดไฟล์คำตอบนักเรียนได้: ${studentAnswerResult.error}`);
-      }
+      setUploadProgress(80);
       
-      // 3. บันทึกข้อมูลการอัปโหลดลงฐานข้อมูล (แบบข้าม RLS)
+      // 3. จำลองการบันทึกข้อมูล
       setUploadStatus('กำลังบันทึกข้อมูล...');
-      setUploadProgress(90);
       
       const uploadInfo = {
         class_id: classId,
         question_id: questionId,
-        answer_key_filename: answerKeyResult.data.originalName,
-        answer_key_path: answerKeyResult.data.path,
-        student_answer_filename: studentAnswerResult.data.originalName,
-        student_answer_path: studentAnswerResult.data.path,
+        answer_key_filename: answerKeyResult.originalName,
+        answer_key_path: answerKeyResult.path,
+        student_answer_filename: studentAnswerResult.originalName,
+        student_answer_path: studentAnswerResult.path,
         uploaded_at: new Date().toISOString(),
         uploaded_by: user.id,
-        status: 'pending_evaluation'
+        status: 'uploaded'
       };
       
-      // บันทึกข้อมูลแบบข้าม RLS
-      await saveUploadInfo(uploadInfo);
+      // จำลองการบันทึกข้อมูล
+      console.log('ข้อมูลที่บันทึก (จำลอง):', uploadInfo);
       
-      // 4. ส่งไฟล์เฉลยไปยัง API เพื่อประมวลผล (ขั้นตอนนี้ไม่ได้ใช้ Supabase โดยตรง)
-      try {
-        setUploadStatus('กำลังส่งข้อมูลไปยัง API...');
-        setUploadProgress(95);
-        
-        // แทนที่จะส่งไฟล์จริง ให้ใช้ข้อมูลจำลองเพื่อไม่ให้ติด RLS
-        // ในระบบจริงต้องสร้าง API Endpoint สำหรับรับไฟล์โดยเฉพาะ
-        await new Promise(resolve => setTimeout(resolve, 1000)); // จำลองการส่งไฟล์
-        
-        console.log('ส่งข้อมูลไปยัง API สำเร็จ (จำลอง)');
-      } catch (apiError) {
-        console.warn('เกิดข้อผิดพลาดในการส่งข้อมูลไปยัง API:', apiError);
-        // ไม่ throw error เพื่อให้กระบวนการทำงานต่อไปได้
-      }
+      // จำลองการรอบันทึกข้อมูล
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       // เสร็จสิ้นการอัปโหลด
       setUploadProgress(100);
@@ -218,9 +174,9 @@ export default function UploadFilesPage() {
       setStudentAnswerFile(null);
       setQuestionId('');
       
-      // นำทางไปยังหน้าประเมินผลหลังจากสำเร็จ
+      // นำทางกลับไปยังหน้ารายวิชาหลังจากอัปโหลดสำเร็จ
       setTimeout(() => {
-        router.push(`/class/${classId}/evaluation/${questionId}`);
+        router.push(`/class/${classId}`);
       }, 2000);
       
     } catch (error) {
@@ -230,28 +186,6 @@ export default function UploadFilesPage() {
       setIsUploading(false);
     }
   };
-
-  // แสดงหน้า loading
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <div className="min-h-screen bg-[#F3F4F6]">
-          <Header />
-          <main className="container mx-auto p-4 md:p-6">
-            <div className="flex justify-center items-center h-64">
-              <div className="text-center">
-                <svg className="animate-spin h-10 w-10 mx-auto mb-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p className="text-gray-700">กำลังโหลดข้อมูล...</p>
-              </div>
-            </div>
-          </main>
-        </div>
-      </ProtectedRoute>
-    );
-  }
 
   return (
     <ProtectedRoute>
@@ -278,7 +212,7 @@ export default function UploadFilesPage() {
               </div>
               <h2 className="text-2xl font-bold mb-4 text-[#333333]">อัปโหลดสำเร็จ</h2>
               <p className="mb-6 text-gray-600">ไฟล์ของคุณได้ถูกอัปโหลดเรียบร้อยแล้ว</p>
-              <p className="mb-6 text-gray-600">กำลังนำคุณไปยังหน้าประเมินผล...</p>
+              <p className="mb-6 text-gray-600">กำลังนำคุณกลับไปยังหน้ารายวิชา...</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="max-w-xl mx-auto bg-white p-6 rounded-lg shadow-md">
@@ -289,7 +223,7 @@ export default function UploadFilesPage() {
                   <li>อัปโหลดไฟล์ PDF เฉลยจากอาจารย์</li>
                   <li>อัปโหลดไฟล์ PDF คำตอบจากนักเรียน</li>
                   <li>ระบุรหัสคำถามเพื่อใช้อ้างอิง</li>
-                  <li>ระบบจะทำการประเมินคำตอบโดยเปรียบเทียบกับเฉลย</li>
+                  <li>ระบบจะทำการบันทึกไฟล์ของคุณ</li>
                 </ol>
               </div>
               
@@ -319,78 +253,30 @@ export default function UploadFilesPage() {
               </div>
               
               {/* อัปโหลดไฟล์เฉลยจากอาจารย์ */}
-              <div className="mb-4">
-                <label htmlFor="answerKey" className="block text-sm font-medium text-[#333333] mb-1">
-                  ไฟล์เฉลยจากอาจารย์ (PDF) <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <svg className="w-8 h-8 mb-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                      </svg>
-                      <p className="mb-2 text-sm text-gray-500">
-                        <span className="font-semibold">คลิกเพื่อเลือกไฟล์</span> หรือลากไฟล์มาวาง
-                      </p>
-                      <p className="text-xs text-gray-500">PDF เท่านั้น (สูงสุด 10MB)</p>
-                    </div>
-                    <input
-                      id="answerKey"
-                      type="file"
-                      className="hidden"
-                      accept=".pdf"
-                      onChange={handleAnswerKeyChange}
-                      required
-                    />
-                  </label>
-                </div>
-                {answerKeyFile && (
-                  <div className="mt-2 flex items-center text-sm text-gray-700">
-                    <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    <span>{answerKeyFile.name}</span>
-                    <span className="ml-2 text-gray-500">({(answerKeyFile.size / 1024 / 1024).toFixed(2)} MB)</span>
-                  </div>
-                )}
-              </div>
+              <FileUploader
+                onFileChange={handleAnswerKeyChange}
+                accept=".pdf"
+                fileCategory="PDF"
+                fileType="PDF"
+                label="ไฟล์เฉลยจากอาจารย์ (PDF)"
+                required={true}
+                id="answerKey"
+                name="answerKey"
+                maxSize="10MB"
+              />
               
               {/* อัปโหลดไฟล์คำตอบนักเรียน */}
-              <div className="mb-6">
-                <label htmlFor="studentAnswer" className="block text-sm font-medium text-[#333333] mb-1">
-                  ไฟล์คำตอบนักเรียน (PDF) <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <svg className="w-8 h-8 mb-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                      </svg>
-                      <p className="mb-2 text-sm text-gray-500">
-                        <span className="font-semibold">คลิกเพื่อเลือกไฟล์</span> หรือลากไฟล์มาวาง
-                      </p>
-                      <p className="text-xs text-gray-500">PDF เท่านั้น (สูงสุด 10MB)</p>
-                    </div>
-                    <input
-                      id="studentAnswer"
-                      type="file"
-                      className="hidden"
-                      accept=".pdf"
-                      onChange={handleStudentAnswerChange}
-                      required
-                    />
-                  </label>
-                </div>
-                {studentAnswerFile && (
-                  <div className="mt-2 flex items-center text-sm text-gray-700">
-                    <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    <span>{studentAnswerFile.name}</span>
-                    <span className="ml-2 text-gray-500">({(studentAnswerFile.size / 1024 / 1024).toFixed(2)} MB)</span>
-                  </div>
-                )}
-              </div>
+              <FileUploader
+                onFileChange={handleStudentAnswerChange}
+                accept=".pdf"
+                fileCategory="PDF"
+                fileType="PDF"
+                label="ไฟล์คำตอบนักเรียน (PDF)"
+                required={true}
+                id="studentAnswer"
+                name="studentAnswer"
+                maxSize="10MB"
+              />
               
               {/* แสดงความคืบหน้าการอัปโหลด */}
               {isUploading && (
@@ -431,7 +317,7 @@ export default function UploadFilesPage() {
                       </svg>
                       กำลังอัปโหลด...
                     </>
-                  ) : 'อัปโหลดและประเมินผล'}
+                  ) : 'อัปโหลดไฟล์'}
                 </button>
               </div>
             </form>
