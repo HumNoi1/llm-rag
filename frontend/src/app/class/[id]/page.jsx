@@ -19,7 +19,7 @@ export default function ClassDetailPage() {
   const [classInfo, setClassInfo] = useState(null);
   const [uploadedQuestions, setUploadedQuestions] = useState([]);
   const [evaluatedAnswers, setEvaluatedAnswers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // เริ่มต้นเป็น true เพื่อแสดง loading indicator
   const [error, setError] = useState('');
 
   // ดึงข้อมูลรายวิชาเมื่อโหลดหน้า
@@ -29,6 +29,7 @@ export default function ClassDetailPage() {
         if (!user) return;
 
         setLoading(true);
+        setError('');
         
         // ดึงข้อมูลรายวิชา
         const { data, error } = await supabase
@@ -84,13 +85,13 @@ export default function ClassDetailPage() {
         }
       } catch (error) {
         console.error('Error fetching class info:', error);
-        setError('ไม่สามารถดึงข้อมูลรายวิชาได้');
+        setError('ไม่สามารถดึงข้อมูลรายวิชาได้: ' + error.message);
       } finally {
         setLoading(false);
       }
     }
 
-    if (classId) {
+    if (classId && user) {
       fetchClassInfo();
     }
   }, [classId, user]);
@@ -100,13 +101,36 @@ export default function ClassDetailPage() {
     router.push(`/class/${classId}/evaluation/${questionId}`);
   };
 
-  // แสดงหน้า loading
-  if (loading) {
-    return (
-      <ProtectedRoute>
-        <div className="min-h-screen bg-[#F3F4F6]">
-          <Header />
-          <main className="container mx-auto p-4 md:p-6">
+  // ฟังก์ชันรีเฟรชข้อมูล
+  const handleRefresh = () => {
+    if (classId && user) {
+      setLoading(true);
+      fetchClassInfo();
+    }
+  };
+
+  return (
+    <ProtectedRoute>
+      <div className="min-h-screen bg-[#F3F4F6]">
+        <Header />
+        
+        <main className="container mx-auto p-4 md:p-6">
+          {/* ปุ่มรีเฟรชข้อมูล */}
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={handleRefresh}
+              className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+              disabled={loading}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {loading ? 'กำลังโหลด...' : 'รีเฟรชข้อมูล'}
+            </button>
+          </div>
+          
+          {/* แสดงหน้า loading */}
+          {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="text-center">
                 <svg className="animate-spin h-10 w-10 mx-auto mb-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -116,239 +140,251 @@ export default function ClassDetailPage() {
                 <p className="text-gray-700">กำลังโหลดข้อมูล...</p>
               </div>
             </div>
-          </main>
-        </div>
-      </ProtectedRoute>
-    );
-  }
-
-  // แสดงข้อความผิดพลาด
-  if (error) {
-    return (
-      <ProtectedRoute>
-        <div className="min-h-screen bg-[#F3F4F6]">
-          <Header />
-          <main className="container mx-auto p-4 md:p-6">
-            <div className="bg-red-100 border border-red-400 text-red-700 p-4 rounded-lg">
-              <h2 className="text-lg font-semibold mb-2">เกิดข้อผิดพลาด</h2>
-              <p>{error}</p>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="mt-4 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
-              >
-                กลับไปหน้าแดชบอร์ด
-              </button>
-            </div>
-          </main>
-        </div>
-      </ProtectedRoute>
-    );
-  }
-
-  return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-[#F3F4F6]">
-        <Header />
-        
-        <main className="container mx-auto p-4 md:p-6">
-          {/* ส่วนหัวและข้อมูลรายวิชา */}
-          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h1 className="text-2xl font-bold text-[#333333]">{classInfo?.name}</h1>
-                <p className="text-gray-600">{classInfo?.code} - ภาคเรียนที่ {classInfo?.semester}/{classInfo?.academic_year}</p>
-              </div>
-              <div className="flex space-x-4">
-                <PrimaryButtonLink href="/dashboard">
-                  กลับไปหน้าแดชบอร์ด
-                </PrimaryButtonLink>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-4 mt-4">
-              <div className="bg-blue-50 p-4 rounded-md flex items-center">
-                <div className="bg-blue-100 rounded-full p-2 mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">จำนวนนักเรียน</p>
-                  <p className="text-lg font-semibold">{classInfo?.students_count || 0} คน</p>
-                </div>
-              </div>
-              
-              <div className="bg-green-50 p-4 rounded-md flex items-center">
-                <div className="bg-green-100 rounded-full p-2 mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">ข้อสอบที่อัปโหลด</p>
-                  <p className="text-lg font-semibold">{uploadedQuestions.length} ข้อ</p>
-                </div>
-              </div>
-              
-              <div className="bg-purple-50 p-4 rounded-md flex items-center">
-                <div className="bg-purple-100 rounded-full p-2 mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">คะแนนเฉลี่ย</p>
-                  <p className="text-lg font-semibold">
-                    {evaluatedAnswers.length > 0
-                      ? (evaluatedAnswers.reduce((sum, answer) => sum + answer.score, 0) / evaluatedAnswers.length).toFixed(1)
-                      : "ยังไม่มีผลคะแนน"} / 10
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* ส่วนการจัดการการตรวจข้อสอบ */}
-          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-[#333333]">การจัดการตรวจข้อสอบ</h2>
-              <PrimaryButtonLink href={`/class/${classId}/upload`}>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          ) : error ? (
+            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-                อัปโหลดไฟล์ใหม่
-              </PrimaryButtonLink>
-            </div>
-            
-            <div className="bg-blue-50 p-4 rounded-md mb-6">
-              <h3 className="font-medium text-blue-700 mb-2">ขั้นตอนการตรวจข้อสอบอัตนัย</h3>
-              <ol className="list-decimal list-inside space-y-1 text-gray-700">
-                <li>อัปโหลดไฟล์เฉลยจากอาจารย์ (PDF)</li>
-                <li>อัปโหลดไฟล์คำตอบของนักเรียน (PDF)</li>
-                <li>รอระบบประมวลผลและประเมินคำตอบ</li>
-                <li>ตรวจสอบผลการประเมินและปรับแก้คะแนนตามความเหมาะสม</li>
-                <li>บันทึกคะแนนเข้าสู่ระบบ</li>
-              </ol>
-            </div>
-            
-            <div className="mb-6">
-              <h3 className="font-medium text-[#333333] mb-2">ข้อสอบที่อัปโหลดแล้ว</h3>
-              {uploadedQuestions.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสคำถาม</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำถาม</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่อัปโหลด</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {uploadedQuestions.map((question) => (
-                        <tr key={question.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">{question.id}</td>
-                          <td className="px-6 py-4">{question.title}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{question.uploadDate}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              question.status === 'evaluated' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {question.status === 'evaluated' ? 'ประเมินแล้ว' : 'รอการประเมิน'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={() => handleViewEvaluation(question.id)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              ดูผลการประเมิน
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-4 bg-gray-50 rounded-md">
-                  <p className="text-gray-500">ยังไม่มีข้อสอบที่อัปโหลด</p>
-                  <button
-                    onClick={() => router.push(`/class/${classId}/upload`)}
-                    className="mt-2 text-blue-600 hover:text-blue-900"
-                  >
-                    อัปโหลดข้อสอบเลย
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {evaluatedAnswers.length > 0 && (
-              <div>
-                <h3 className="font-medium text-[#333333] mb-2">คำตอบที่ประเมินล่าสุด</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสคำถาม</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อนักเรียน</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คะแนน</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ประเมิน</th>
-                        <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {evaluatedAnswers.map((answer) => (
-                        <tr key={answer.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">{answer.questionId}</td>
-                          <td className="px-6 py-4">{answer.studentName}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{answer.score}/10</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{answer.evaluatedDate}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={() => router.push(`/class/${classId}/compare/${answer.questionId}`)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              ดูรายละเอียด
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <p>{error}</p>
               </div>
-            )}
-          </div>
-          
-          {/* ส่วนข้อมูลเพิ่มเติม */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold text-[#333333] mb-4">ข้อมูลเพิ่มเติม</h2>
-            
-            <div className="mb-4">
-              <h3 className="font-medium text-gray-700 mb-2">คำอธิบายรายวิชา</h3>
-              <p className="text-gray-600">{classInfo?.description || 'ไม่มีคำอธิบายรายวิชา'}</p>
+              <div className="mt-4 flex space-x-4">
+                <button 
+                  onClick={handleRefresh}
+                  className="text-sm font-medium text-red-700 hover:underline"
+                >
+                  ลองอีกครั้ง
+                </button>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="text-sm font-medium text-red-700 hover:underline"
+                >
+                  กลับไปหน้าแดชบอร์ด
+                </button>
+              </div>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="font-medium text-gray-700 mb-2">สถานะการสอน</h3>
-                <div className="flex items-center">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    classInfo?.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {classInfo?.is_active ? 'เปิดสอน' : 'ปิดการสอน'}
-                  </span>
+          ) : (
+            <>
+              {/* ส่วนหัวและข้อมูลรายวิชา */}
+              <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h1 className="text-2xl font-bold text-[#333333]">{classInfo?.name || 'ไม่มีชื่อรายวิชา'}</h1>
+                    <p className="text-gray-600">{classInfo?.code || 'ไม่มีรหัสวิชา'} - ภาคเรียนที่ {classInfo?.semester || '-'}/{classInfo?.academic_year || '-'}</p>
+                  </div>
+                  <div className="flex space-x-4">
+                    <PrimaryButtonLink href="/dashboard">
+                      กลับไปหน้าแดชบอร์ด
+                    </PrimaryButtonLink>
+                  </div>
+                </div>
+                
+                {/* แสดงข้อมูลสรุป */}
+                <div className="flex flex-wrap gap-4 mt-4">
+                  <div className="bg-blue-50 p-4 rounded-md flex items-center">
+                    <div className="bg-blue-100 rounded-full p-2 mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">ข้อสอบที่อัปโหลด</p>
+                      <p className="text-lg font-semibold">{uploadedQuestions.length} ข้อ</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-green-50 p-4 rounded-md flex items-center">
+                    <div className="bg-green-100 rounded-full p-2 mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">ประเมินแล้ว</p>
+                      <p className="text-lg font-semibold">{evaluatedAnswers.length} ข้อ</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-purple-50 p-4 rounded-md flex items-center">
+                    <div className="bg-purple-100 rounded-full p-2 mr-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">คะแนนเฉลี่ย</p>
+                      <p className="text-lg font-semibold">
+                        {evaluatedAnswers.length > 0
+                          ? (evaluatedAnswers.reduce((sum, answer) => sum + answer.score, 0) / evaluatedAnswers.length).toFixed(1)
+                          : "ยังไม่มี"} / 10
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
               
-              <div>
-                <h3 className="font-medium text-gray-700 mb-2">วันที่สร้างรายวิชา</h3>
-                <p className="text-gray-600">{classInfo?.created_at ? new Date(classInfo.created_at).toLocaleDateString('th-TH') : '-'}</p>
+              {/* ส่วนการจัดการการตรวจข้อสอบ */}
+              <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-[#333333]">การจัดการตรวจข้อสอบ</h2>
+                  <PrimaryButtonLink href={`/class/${classId}/upload`}>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    อัปโหลดไฟล์ใหม่
+                  </PrimaryButtonLink>
+                </div>
+                
+                <div className="bg-blue-50 p-4 rounded-md mb-6">
+                  <h3 className="font-medium text-blue-700 mb-2">ขั้นตอนการตรวจข้อสอบอัตนัย</h3>
+                  <ol className="list-decimal list-inside space-y-1 text-gray-700">
+                    <li>อัปโหลดไฟล์เฉลยจากอาจารย์ (PDF)</li>
+                    <li>อัปโหลดไฟล์คำตอบของนักเรียน (PDF)</li>
+                    <li>รอระบบประมวลผลและประเมินคำตอบ</li>
+                    <li>ตรวจสอบผลการประเมินและปรับแก้คะแนนตามความเหมาะสม</li>
+                    <li>บันทึกคะแนนเข้าสู่ระบบ</li>
+                  </ol>
+                </div>
+                
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-medium text-[#333333]">ข้อสอบที่อัปโหลดแล้ว ({uploadedQuestions.length})</h3>
+                  </div>
+                  
+                  {uploadedQuestions.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสคำถาม</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำถาม</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่อัปโหลด</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {uploadedQuestions.map((question) => (
+                            <tr key={question.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">{question.id}</td>
+                              <td className="px-6 py-4">{question.title}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">{question.uploadDate}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  question.status === 'evaluated' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {question.status === 'evaluated' ? 'ประเมินแล้ว' : 'รอการประเมิน'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button
+                                  onClick={() => handleViewEvaluation(question.id)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                >
+                                  ดูผลการประเมิน
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 bg-gray-50 rounded-md">
+                      <div className="mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-500 mb-4">ยังไม่มีข้อสอบที่อัปโหลด</p>
+                      <button
+                        onClick={() => router.push(`/class/${classId}/upload`)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition inline-flex items-center"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        อัปโหลดข้อสอบเลย
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {evaluatedAnswers.length > 0 && (
+                  <div>
+                    <h3 className="font-medium text-[#333333] mb-2">คำตอบที่ประเมินล่าสุด</h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสคำถาม</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อนักเรียน</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คะแนน</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ประเมิน</th>
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {evaluatedAnswers.map((answer) => (
+                            <tr key={answer.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">{answer.questionId}</td>
+                              <td className="px-6 py-4">{answer.studentName}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  answer.score >= 8 ? 'bg-green-100 text-green-800' : 
+                                  answer.score >= 5 ? 'bg-yellow-100 text-yellow-800' : 
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {answer.score}/10
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">{answer.evaluatedDate}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button
+                                  onClick={() => router.push(`/class/${classId}/compare/${answer.questionId}`)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                >
+                                  ดูรายละเอียด
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
+              
+              {/* ส่วนข้อมูลเพิ่มเติม */}
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold text-[#333333] mb-4">ข้อมูลเพิ่มเติม</h2>
+                
+                <div className="mb-4">
+                  <h3 className="font-medium text-gray-700 mb-2">คำอธิบายรายวิชา</h3>
+                  <p className="text-gray-600">{classInfo?.description || 'ไม่มีคำอธิบายรายวิชา'}</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-medium text-gray-700 mb-2">สถานะการสอน</h3>
+                    <div className="flex items-center">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        classInfo?.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {classInfo?.is_active ? 'เปิดสอน' : 'ปิดการสอน'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-medium text-gray-700 mb-2">วันที่สร้างรายวิชา</h3>
+                    <p className="text-gray-600">{classInfo?.created_at ? new Date(classInfo.created_at).toLocaleDateString('th-TH') : '-'}</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </main>
       </div>
     </ProtectedRoute>
