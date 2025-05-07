@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
-import ClassCard from '@/components/ClassCard';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import ClassCard from '@/components/Classcard';
 import { useAuth } from '@/context/AuthContext';
 import supabase from '@/lib/supabase';
 
