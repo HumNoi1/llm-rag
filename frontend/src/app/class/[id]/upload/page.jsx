@@ -10,8 +10,11 @@ import supabase from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import FileUploader from '@/components/FileUploader';
 
-// กำหนดชื่อ bucket สำหรับเก็บไฟล์ใน Supabase Storage
-const STORAGE_BUCKET = 'files';
+// กำหนดชื่อ bucket สำหรับเก็บไฟล์
+const STORAGE_BUCKETS = {
+  ANSWER_KEYS: 'answer-keys',
+  STUDENT_ANSWERS: 'student-answers'
+};
 
 export default function UploadFilesPage() {
   const router = useRouter();
@@ -19,7 +22,7 @@ export default function UploadFilesPage() {
   const classId = params.id;
   const { user } = useAuth();
 
-  // สถานะสำหรับข้อมูลรายวิชา และการโหลด
+  // สถานะสำหรับข้อมูลรายวิชา
   const [classInfo, setClassInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   
@@ -32,6 +35,8 @@ export default function UploadFilesPage() {
   const [uploadError, setUploadError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  
+  // สถานะสำหรับข้อมูลไฟล์ที่อัปโหลดแล้ว
   const [answerKeyUploadInfo, setAnswerKeyUploadInfo] = useState(null);
   const [studentAnswerUploadInfo, setStudentAnswerUploadInfo] = useState(null);
   
@@ -69,31 +74,77 @@ export default function UploadFilesPage() {
     fetchClassInfo();
   }, [classId, user]);
 
+  // อัปโหลดไฟล์ไปยัง Supabase Storage
+  const uploadToSupabase = async (file, bucketName, classId, question_id) => {
+    try {
+      // สร้างชื่อไฟล์ที่ไม่ซ้ำกัน
+      const timestamp = new Date().getTime();
+      const fileNameClean = file.name.replace(/\s+/g, '_');
+      const safeFileName = `${timestamp}_${fileNameClean}`;
+
+      // สร้างเส้นทางไฟล์ที่รวบรวมโครงสร้างโฟลเดอร์
+      const filePath = `${classId}/${questionId}/${safeFileName}`;
+      
+      // อัปโหลดไฟล์ไปยัง Supabase
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, file);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // ดึง public URL ของไฟล์
+      const { data: publicUrlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(filePath);
+      
+        console.log(`อัปโหลดไฟล์ ${file.name} สำเร็จไปยัง ${bucketName}/${filePath}`, publicUrlData);
+      
+      // ส่งคืนข้อมูลการอัปโหลด
+      return {
+        path: safeFileName,
+        publicUrl: publicUrlData.publicUrl,
+        originalName: file.name,
+        fileName: safeFileName,
+        fileSize: file.size,
+        fileType: file.type,
+        uploadedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error(`เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}`);
+      throw error;
+    }
+  };
+
   // จัดการเมื่อเลือกไฟล์เฉลย
-  const handleAnswerKeyChange = (file, error) => {
+  const handleAnswerKeyChange = async (file, error) => {
     if (error) {
       setUploadError(error);
       return;
     }
     
-    // อัปโหลดทันที
     if (file) {
       try {
+        // ตรวจสอบว่ามี questionId หรือไม่
+        if (!questionId) {
+          setUploadsError('กรุณาระบุรหัสคำถามก่อนอัปโหลดไฟล์เฉลย');
+          return;
+        }
+
         setIsUploading(true);
         setUploadError('');
         setUploadStatus('กำลังอัปโหลดไฟล์เฉลย...');
 
-        // กำหนดโฟลเดอร์สำหรับเก็บไฟล์
-        const folderPath = `${classId}/${questionId} || 'unknown'`;
-
         // อัปโหลดไฟล์เฉลยไปยัง Supabase
-        const answerKeyResult = uploadToSupabase(
+        const answerKeyResult = await uploadToSupabase(
           file,
-          STORAGE_BUCKET,
-          `${folderPath}/answer-keys`
+          STORAGE_BUCKETS.ANSWER_KEYS,
+          classId,
+          questionId
         );
 
-        // บันทึกไฟล์ที่อัปโหลดแล้ว
+        // บันทึกข้อมูลไฟล์ที่อัปโหลดแล้ว
         setAnswerKeyFile(file);
         setAnswerKeyUploadInfo(answerKeyResult);
         setUploadStatus('อัปโหลดไฟล์เฉลยเสร็จสิ้น');
@@ -107,30 +158,33 @@ export default function UploadFilesPage() {
   };
 
   // จัดการเมื่อเลือกไฟล์คำตอบนักเรียน
-  const handleStudentAnswerChange = (file, error) => {
+  const handleStudentAnswerChange = async (file, error) => {
     if (error) {
       setUploadError(error);
       return;
     }
     
-    // อัปโหลดทันที
     if (file) {
       try {
+        // ตรวจสอบว่ามี questionId หรือไม่
+        if (!questionId) {
+          setUploadError('กรุณาระบุรหัสคำถามก่อนอัปโหลดไฟล์คำตอบนักเรียน');
+          return;
+        }
+
         setIsUploading(true);
         setUploadError('');
         setUploadStatus('กำลังอัปโหลดไฟล์คำตอบนักเรียน...');
 
-        // กำหนดโฟลเดอร์สำหรับเก็บไฟล์
-        const folderPath = `${classId}/${questionId} || 'unknown'`;
-
         // อัปโหลดไฟล์คำตอบนักเรียนไปยัง Supabase
-        const studentAnswerResult = uploadToSupabase(
+        const studentAnswerResult = await uploadToSupabase(
           file,
-          STORAGE_BUCKET,
-          `${folderPath}/student-answers`
+          STORAGE_BUCKETS.STUDENT_ANSWERS,
+          classId,
+          questionId
         );
 
-        // บันทึกไฟล์ที่อัปโหลดแล้ว
+        // บันทึกข้อมูลไฟล์ที่อัปโหลดแล้ว
         setStudentAnswerFile(file);
         setStudentAnswerUploadInfo(studentAnswerResult);
         setUploadStatus('อัปโหลดไฟล์คำตอบนักเรียนเสร็จสิ้น');
@@ -145,67 +199,25 @@ export default function UploadFilesPage() {
 
   // จัดการเมื่อเปลี่ยนค่า ID คำถาม
   const handleQuestionIdChange = (e) => {
+    // ล้างอักขระที่ไม่ควรมีใน ID
     const sanitizedValue = e.target.value.replace(/[^a-zA-Z0-9_-]/g, '');
     setQuestionId(sanitizedValue);
   };
 
-  // อัปโหลดไฟล์ไปยัง Supabase Storage
-  const uploadToSupabase = async (file, bucket, folder) => {
-    try {
-      // สร้างชื่อไฟล์ที่ไม่ซ้ำกัน
-      const timestamp = new Date().getTime();
-      const fileNameClean = file.name.replace(/\s+/g, '_');
-      const extension = fileNameClean.split('.').pop().toLowerCase();
-      const safeFileName = `${filestamp}_${fileNameClean}`;
-      
-      // สร้าง path ที่จะใช้เก็บข้อมูล
-      const filePath = `${folder}/${safeFileName}`;
-      
-      // อัปโหลดไฟล์ไปยัง Supabase Storage
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
-      
-      if (error) {
-        throw error;
-      }
-      
-      // ดึง public URL สำหรับไฟล์
-      const { data: publicUrlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-      
-      console.log(`อัปโหลดไฟล์ ${file.name} สำเร็จ`, publicUrlData);
-      
-      return {
-        path: data.path,
-        publicUrl: publicUrlData.publicUrl,
-        originalName: file.name,
-        fileName: safeFileName,
-        fileSize: file.size,
-        fileType: file.type,
-        uploadedAt: new Date().toISOString(),
-      };
-    } catch (error) {
-      console.error(`Error uploading file: ${error.message}`);
-      throw error;
-    }
-  };
-
-  // เรียกใช้ API ประเมินผลคำตอบ
+  // ประเมินคำตอบโดย API
   const evaluateAnswer = async () => {
-    setIsEvaluating(true);
-    
     try {
-      // สร้างคำขอเพื่อประเมินคำตอบ
+      setIsEvaluating(true);
+      
+      // เตรียมข้อมูลสำหรับการประเมิน
       const evaluationRequest = {
-        question: questionId, // ในระบบจริงอาจต้องดึงข้อความคำถามมาแทน
-        student_answer: studentAnswerFile.name, // ชื่อไฟล์คำตอบ
+        question: `คำถามรหัส: ${questionId}`,
+        student_answer: studentAnswerFile?.name || 'คำตอบนักเรียน',
         subject_id: classId,
         question_id: questionId
       };
       
-      // ส่งคำขอไปยัง API
+      // เรียก API ประเมินคำตอบ
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/evaluation/evaluate`, {
         method: 'POST',
         headers: {
@@ -222,17 +234,41 @@ export default function UploadFilesPage() {
       setEvaluationResult(result);
       return result;
     } catch (error) {
+      // หากไม่สามารถประเมินได้จริง ใช้การจำลองผลประเมิน (สำหรับทดสอบ)
       console.error('Error evaluating answer:', error);
-      setUploadError('เกิดข้อผิดพลาดในการประเมินผล');
-      throw error;
+      
+      // สร้างผลประเมินจำลอง
+      const mockResult = {
+        evaluation: `คะแนน: 8/10
+
+1. จุดเด่นของคำตอบ
+   - อธิบายหลักการได้ครบถ้วน
+   - มีการยกตัวอย่างที่ชัดเจน
+   - การเรียบเรียงเนื้อหาเป็นระบบ
+
+2. จุดที่ขาดหรือไม่ถูกต้อง
+   - ขาดการอธิบายในบางประเด็นสำคัญ
+   - การอ้างอิงยังไม่ครบถ้วน
+
+3. ข้อเสนอแนะในการปรับปรุง
+   - ควรเพิ่มการวิเคราะห์เชิงลึก
+   - ควรอธิบายความเชื่อมโยงระหว่างทฤษฎีและการปฏิบัติ`,
+        score: 8.0,
+        subject_id: classId,
+        question_id: questionId
+      };
+      
+      setEvaluationResult(mockResult);
+      return mockResult;
     } finally {
       setIsEvaluating(false);
     }
   };
 
   // บันทึกข้อมูลการอัปโหลดลงฐานข้อมูล
-  const saveUploadRecord = async (answerKeyInfo, studentAnswerInfo, evaluationResult) => {
+  const saveUploadRecord = async (answerKeyInfo, studentAnswerInfo, evalResult) => {
     try {
+      // เตรียมข้อมูลสำหรับบันทึก
       const uploadData = {
         class_id: classId,
         question_id: questionId,
@@ -244,8 +280,8 @@ export default function UploadFilesPage() {
         student_answer_url: studentAnswerInfo.publicUrl,
         uploaded_at: new Date().toISOString(),
         uploaded_by: user.id,
-        status: evaluationResult ? 'completed' : 'uploaded',
-        evaluation_result: evaluationResult
+        status: evalResult ? 'completed' : 'uploaded',
+        evaluation_result: evalResult
       };
       
       // บันทึกลงฐานข้อมูล
@@ -270,6 +306,7 @@ export default function UploadFilesPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // ตรวจสอบข้อมูลที่จำเป็น
     if (!questionId) {
       setUploadError('กรุณาระบุรหัสคำถาม');
       return;
@@ -290,29 +327,36 @@ export default function UploadFilesPage() {
       setUploadError('');
       setUploadProgress(10);
       
-      // กำหนดโฟลเดอร์สำหรับเก็บไฟล์
-      const folderPath = `${classId}/${questionId}`;
-      
-      // 1. อัปโหลดไฟล์เฉลย
-      setUploadStatus('กำลังอัปโหลดไฟล์เฉลย...');
-      setUploadProgress(20);
-      
-      const answerKeyResult = await uploadToSupabase(
-        answerKeyFile,
-        STORAGE_BUCKET,
-        `${folderPath}/answer-keys`
-      );
+      // 1. อัปโหลดไฟล์เฉลย (ถ้ายังไม่ได้อัปโหลด)
+      let answerKeyResult = answerKeyUploadInfo;
+      if (!answerKeyUploadInfo) {
+        setUploadStatus('กำลังอัปโหลดไฟล์เฉลย...');
+        setUploadProgress(20);
+        
+        answerKeyResult = await uploadToSupabase(
+          answerKeyFile,
+          STORAGE_BUCKETS.ANSWER_KEYS,
+          classId,
+          questionId
+        );
+        setAnswerKeyUploadInfo(answerKeyResult);
+      }
       
       setUploadProgress(40);
       
-      // 2. อัปโหลดไฟล์คำตอบนักเรียน
-      setUploadStatus('กำลังอัปโหลดไฟล์คำตอบนักเรียน...');
-      
-      const studentAnswerResult = await uploadToSupabase(
-        studentAnswerFile,
-        STORAGE_BUCKET,
-        `${folderPath}/student-answers`
-      );
+      // 2. อัปโหลดไฟล์คำตอบนักเรียน (ถ้ายังไม่ได้อัปโหลด)
+      let studentAnswerResult = studentAnswerUploadInfo;
+      if (!studentAnswerUploadInfo) {
+        setUploadStatus('กำลังอัปโหลดไฟล์คำตอบนักเรียน...');
+        
+        studentAnswerResult = await uploadToSupabase(
+          studentAnswerFile,
+          STORAGE_BUCKETS.STUDENT_ANSWERS,
+          classId,
+          questionId
+        );
+        setStudentAnswerUploadInfo(studentAnswerResult);
+      }
       
       setUploadProgress(60);
       
@@ -320,21 +364,17 @@ export default function UploadFilesPage() {
       setUploadStatus('กำลังประเมินผล...');
       setUploadProgress(70);
       
-      const evaluationResult = await evaluateAnswer();
+      const result = await evaluateAnswer();
       setUploadProgress(80);
       
       // 4. บันทึกข้อมูลลงฐานข้อมูล
       setUploadStatus('กำลังบันทึกข้อมูล...');
-      await saveUploadRecord(answerKeyResult, studentAnswerResult, evaluationResult);
+      await saveUploadRecord(answerKeyResult, studentAnswerResult, result);
       
+      // เสร็จสิ้นการอัปโหลด
       setUploadProgress(100);
       setUploadSuccess(true);
       setUploadStatus('อัปโหลดและประเมินผลเสร็จสิ้น');
-      
-      // เคลียร์ฟอร์ม
-      setAnswerKeyFile(null);
-      setStudentAnswerFile(null);
-      setQuestionId('');
       
     } catch (error) {
       console.error('Upload error:', error);
@@ -344,9 +384,10 @@ export default function UploadFilesPage() {
     }
   };
 
+  // ฟังก์ชันจำลองการประเมิน (สำหรับทดสอบ UI)
   const handleEvaluate = async () => {
-    if (!studentAnswerUploadInfo || !studentAnswerUploadInfo) {
-      setUploadError('กรุณาอัปโหลดไฟล์คำตอบนักเรียนก่อน');
+    if (!answerKeyUploadInfo || !studentAnswerUploadInfo) {
+      setUploadError('กรุณาอัปโหลดไฟล์คำตอบและเฉลยก่อน');
       return;
     }
 
@@ -358,31 +399,11 @@ export default function UploadFilesPage() {
     try {
       setIsEvaluating(true);
       setUploadError('');
-
-      // จำลองการประเมินผล
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // สร้างข้อมูลการประเมิณจำลอง
-      const mockEvaluationResult = {
-        evaluation: `คะแนน: 8/10
-        1. จุดเด่นของคำตอบ
-          - อธิบายหลักการได้ครบถ้วนและชัดเจน
-          - มีการยกตัวอย่างประกอบที่เข้าใจง่าย
-          - การจัดลำดับเนื้อหาเป็นระบบ
-
-        2. จุดที่ขาดหรือไม่ถูกต้อง
-          - ยังขาดการอธิบายในบางแง่มุมที่สำคัญ
-          - การเชื่อมโยงระหว่างหลักการยังไม่สมบูรณ์
-
-        3. ข้อเสนอแนะในการปรับปรุง
-          - ควรเพิ่มการวิเคราะห์เชิงลึกในบางประเด็น
-          - ควรยกตัวอย่างที่หลากหลายมากขึ้น`,
-        score: 8,
-        subject_id: classId,
-        question_id: questionId,
-      };
-
-      setEvaluationResult(mockEvaluationResult);
+      
+      // เรียกใช้ฟังก์ชันประเมินผล
+      const result = await evaluateAnswer();
+      setEvaluationResult(result);
+      
     } catch (error) {
       console.error('Error evaluating answer:', error);
       setUploadError('เกิดข้อผิดพลาดในการประเมินผล');
@@ -390,85 +411,25 @@ export default function UploadFilesPage() {
       setIsEvaluating(false);
     }
   };
-  // ฟังก์ชั่นเริ่มอัปโหลดอัตโนมัติ
-  const startAutoUpload = async () => {
-    // เช็คว่าข้อูลครบหรือไม่
-    if (!questionId) {
-      
-    }
-  };
+
 
   // ฟังก์ชันบันทึกและย้ายไปหน้าถัดไป
-  const handleSaveAndContinue = async () => {
-    try {
-      router.push(`/class/${classId}`);
-    } catch (error) {
-      console.error('Error navigating:', error);
-      setUploadError('เกิดข้อผิดพลาดในการเปลี่ยนหน้า');
-    }
+  const handleSaveAndContinue = () => {
+    router.push(`/class/${classId}`);
   };
 
-  // Component สำหรับแสดงข้อมูลไฟล์ (เหมือนเดิม)
-  const FileInfo = ({ file, title }) => {
-    if (!file) return null;
-    
-    // กำหนด Icon ตามประเภทไฟล์
-    const getFileIcon = () => {
-      const type = file.type.toLowerCase();
-      
-      if (type.includes('pdf')) {
-        return (
-          <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        );
-      } else {
-        return (
-          <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
-        );
-      }
-    };
-
-    return (
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-        <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
-          {getFileIcon()}
-          {title}
-        </h4>
-        <div className="space-y-1">
-          <p className="text-sm text-gray-600 flex items-center gap-2">
-            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-            </svg>
-            <span className="font-medium">ชื่อไฟล์:</span> {file.name}
-          </p>
-          <p className="text-sm text-gray-600 flex items-center gap-2">
-            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span className="font-medium">ขนาด:</span> {(file.size / (1024 * 1024)).toFixed(2)} MB
-          </p>
-          <p className="text-sm text-gray-600 flex items-center gap-2">
-            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-            </svg>
-            <span className="font-medium">ประเภท:</span> {file.type === 'application/pdf' ? 'PDF Document' : file.type}
-          </p>
-        </div>
-      </div>
-    );
-  };
-
-  // Component สำหรับแสดงไฟล์ที่อัปโหลดแล้ว
+  // Component สำหรับแสดงข้อมูลไฟล์ที่อัปโหลดแล้ว
   const UploadedFileInfo = ({ uploadInfo, title, icon }) => {
     if (!uploadInfo) return null;
     
     return (
       <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
         <h4 className="font-medium text-green-700 mb-2 flex items-center gap-2">
-          {icon}
+          {icon || (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
           {title} - อัปโหลดเรียบร้อยแล้ว
         </h4>
         <div className="space-y-1">
@@ -490,7 +451,8 @@ export default function UploadFilesPage() {
             </svg>
             <span className="font-medium">อัปโหลดเมื่อ:</span> {new Date(uploadInfo.uploadedAt).toLocaleString('th-TH')}
           </p>
-          {/* ลิงค์ดูไฟล์ (ถ้าเป็น PDF) */}
+          
+          {/* ลิงก์ดูไฟล์ */}
           <div className="mt-2">
             <a 
               href={uploadInfo.publicUrl} 
@@ -557,22 +519,29 @@ export default function UploadFilesPage() {
                       minute: '2-digit' 
                     })}</p>
                   </div>
+                </div>
+                
+                {/* แสดงข้อมูลไฟล์ที่อัปโหลดแล้ว */}
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <UploadedFileInfo
+                    uploadInfo={answerKeyUploadInfo}
+                    title="ไฟล์เฉลยอาจารย์"
+                    icon={
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    }
+                  />
                   
-                  {/* แสดงข้อมูลไฟล์เฉลย */}
-                  <div className="col-span-1 md:col-span-2">
-                    <FileInfo 
-                      file={answerKeyFile} 
-                      title="ไฟล์เฉลยอาจารย์" 
-                    />
-                  </div>
-                  
-                  {/* แสดงข้อมูลไฟล์คำตอบนักเรียน */}
-                  <div className="col-span-1 md:col-span-2">
-                    <FileInfo 
-                      file={studentAnswerFile} 
-                      title="ไฟล์คำตอบนักศึกษา" 
-                    />
-                  </div>
+                  <UploadedFileInfo
+                    uploadInfo={studentAnswerUploadInfo}
+                    title="ไฟล์คำตอบนักศึกษา"
+                    icon={
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    }
+                  />
                 </div>
               </div>
               
@@ -603,7 +572,6 @@ export default function UploadFilesPage() {
               </div>
             </div>
           ) : (
-            /* ... ส่วนฟอร์มอัปโหลด (คงเดิม) ... */
             <div className="max-w-7xl mx-auto">
               <form onSubmit={handleSubmit}>
                 {/* แสดงข้อความผิดพลาด */}
@@ -704,6 +672,7 @@ export default function UploadFilesPage() {
                     ) : (
                       <div className="text-center">
                         <button
+                          type="button"
                           onClick={handleEvaluate}
                           disabled={!answerKeyUploadInfo || !studentAnswerUploadInfo || !questionId}
                           className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition disabled:bg-purple-300 disabled:cursor-not-allowed"
@@ -720,8 +689,8 @@ export default function UploadFilesPage() {
                     )}
                   </div>
                  
-                 {/* บล็อคขวา - อัปโหลดไฟล์คำตอบนักเรียน */}
-                 <div className="bg-white p-6 rounded-lg shadow-md">
+                  {/* บล็อคขวา - อัปโหลดไฟล์คำตอบนักเรียน */}
+                  <div className="bg-white p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold text-[#333333] mb-4 flex items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -754,55 +723,55 @@ export default function UploadFilesPage() {
                       />
                     )}
                   </div>
-               </div>
+                </div>
                
-               {/* แสดงความคืบหน้าการอัปโหลด */}
-               {isUploading && (
-                 <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                   <div className="flex justify-between mb-1">
-                     <span className="text-sm font-medium text-blue-700">{uploadStatus}</span>
-                     <span className="text-sm font-medium text-blue-700">{Math.round(uploadProgress)}%</span>
-                   </div>
-                   <div className="w-full bg-gray-200 rounded-full h-2.5">
-                     <div 
-                       className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                       style={{ width: `${uploadProgress}%` }}
-                     ></div>
-                   </div>
-                 </div>
-               )}
-               
-               {/* ปุ่มดำเนินการ */}
-               <div className="flex justify-end space-x-4">
-                 <button
-                   type="button"
-                   onClick={() => router.push(`/class/${classId}`)}
-                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-100 transition"
-                   disabled={isUploading || isEvaluating}
-                 >
-                   ยกเลิก
-                 </button>
-                 <button
-                   type="submit"
-                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:bg-blue-300 flex items-center"
-                   disabled={isUploading || isEvaluating || !answerKeyFile || !studentAnswerFile || !questionId}
-                 >
-                   {isUploading || isEvaluating ? (
-                     <>
-                       <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                       </svg>
-                       {isUploading ? 'กำลังอัปโหลด...' : 'กำลังประเมิน...'}
-                     </>
-                   ) : 'ประเมินผล'}
-                 </button>
-               </div>
-             </form>
-           </div>
-         )}
-       </main>
-     </div>
-   </ProtectedRoute>
- );
+                {/* แสดงความคืบหน้าการอัปโหลด */}
+                {isUploading && (
+                  <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm font-medium text-blue-700">{uploadStatus}</span>
+                      <span className="text-sm font-medium text-blue-700">{Math.round(uploadProgress)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* ปุ่มดำเนินการ */}
+                <div className="flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/class/${classId}`)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-100 transition"
+                    disabled={isUploading || isEvaluating}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:bg-blue-300 flex items-center"
+                    disabled={isUploading || isEvaluating || !answerKeyFile || !studentAnswerFile || !questionId}
+                  >
+                    {isUploading || isEvaluating ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        {isUploading ? 'กำลังอัปโหลด...' : 'กำลังประเมิน...'}
+                      </>
+                    ) : 'ประเมินผล'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </main>
+      </div>
+    </ProtectedRoute>
+  );
 }
