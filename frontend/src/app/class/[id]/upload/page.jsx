@@ -32,6 +32,8 @@ export default function UploadFilesPage() {
   const [uploadError, setUploadError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [answerKeyUploadInfo, setAnswerKeyUploadInfo] = useState(null);
+  const [studentAnswerUploadInfo, setStudentAnswerUploadInfo] = useState(null);
   
   // สถานะสำหรับผลการประเมิน
   const [evaluationResult, setEvaluationResult] = useState(null);
@@ -73,8 +75,35 @@ export default function UploadFilesPage() {
       setUploadError(error);
       return;
     }
-    setAnswerKeyFile(file);
-    setUploadError('');
+    
+    // อัปโหลดทันที
+    if (file) {
+      try {
+        setIsUploading(true);
+        setUploadError('');
+        setUploadStatus('กำลังอัปโหลดไฟล์เฉลย...');
+
+        // กำหนดโฟลเดอร์สำหรับเก็บไฟล์
+        const folderPath = `${classId}/${questionId} || 'unknown'`;
+
+        // อัปโหลดไฟล์เฉลยไปยัง Supabase
+        const answerKeyResult = uploadToSupabase(
+          file,
+          STORAGE_BUCKET,
+          `${folderPath}/answer-keys`
+        );
+
+        // บันทึกไฟล์ที่อัปโหลดแล้ว
+        setAnswerKeyFile(file);
+        setAnswerKeyUploadInfo(answerKeyResult);
+        setUploadStatus('อัปโหลดไฟล์เฉลยเสร็จสิ้น');
+      } catch (error) {
+        console.error('Upload error:', error);
+        setUploadError(`เกิดข้อผิดพลาดในการอัปโหลด: ${error.message}`);
+      } finally {
+        setIsUploading(false);
+      }
+    }
   };
 
   // จัดการเมื่อเลือกไฟล์คำตอบนักเรียน
@@ -83,8 +112,35 @@ export default function UploadFilesPage() {
       setUploadError(error);
       return;
     }
-    setStudentAnswerFile(file);
-    setUploadError('');
+    
+    // อัปโหลดทันที
+    if (file) {
+      try {
+        setIsUploading(true);
+        setUploadError('');
+        setUploadStatus('กำลังอัปโหลดไฟล์คำตอบนักเรียน...');
+
+        // กำหนดโฟลเดอร์สำหรับเก็บไฟล์
+        const folderPath = `${classId}/${questionId} || 'unknown'`;
+
+        // อัปโหลดไฟล์คำตอบนักเรียนไปยัง Supabase
+        const studentAnswerResult = uploadToSupabase(
+          file,
+          STORAGE_BUCKET,
+          `${folderPath}/student-answers`
+        );
+
+        // บันทึกไฟล์ที่อัปโหลดแล้ว
+        setStudentAnswerFile(file);
+        setStudentAnswerUploadInfo(studentAnswerResult);
+        setUploadStatus('อัปโหลดไฟล์คำตอบนักเรียนเสร็จสิ้น');
+      } catch (error) {
+        console.error('Upload error:', error);
+        setUploadError(`เกิดข้อผิดพลาดในการอัปโหลด: ${error.message}`);
+      } finally {
+        setIsUploading(false);
+      }
+    }
   };
 
   // จัดการเมื่อเปลี่ยนค่า ID คำถาม
@@ -98,8 +154,9 @@ export default function UploadFilesPage() {
     try {
       // สร้างชื่อไฟล์ที่ไม่ซ้ำกัน
       const timestamp = new Date().getTime();
-      const extension = file.name.split('.').pop().toLowerCase();
-      const safeFileName = `${timestamp}_${file.name.replace(/\s+/g, '_')}`;
+      const fileNameClean = file.name.replace(/\s+/g, '_');
+      const extension = fileNameClean.split('.').pop().toLowerCase();
+      const safeFileName = `${filestamp}_${fileNameClean}`;
       
       // สร้าง path ที่จะใช้เก็บข้อมูล
       const filePath = `${folder}/${safeFileName}`;
@@ -118,7 +175,7 @@ export default function UploadFilesPage() {
         .from(bucket)
         .getPublicUrl(filePath);
       
-      console.log(`อัปโหลดไฟล์ ${file.name} สำเร็จ`);
+      console.log(`อัปโหลดไฟล์ ${file.name} สำเร็จ`, publicUrlData);
       
       return {
         path: data.path,
@@ -126,7 +183,8 @@ export default function UploadFilesPage() {
         originalName: file.name,
         fileName: safeFileName,
         fileSize: file.size,
-        fileType: file.type
+        fileType: file.type,
+        uploadedAt: new Date().toISOString(),
       };
     } catch (error) {
       console.error(`Error uploading file: ${error.message}`);
@@ -286,6 +344,60 @@ export default function UploadFilesPage() {
     }
   };
 
+  const handleEvaluate = async () => {
+    if (!studentAnswerUploadInfo || !studentAnswerUploadInfo) {
+      setUploadError('กรุณาอัปโหลดไฟล์คำตอบนักเรียนก่อน');
+      return;
+    }
+
+    if (!questionId) {
+      setUploadError('กรุณาระบุรหัสคำถาม');
+      return;
+    }
+
+    try {
+      setIsEvaluating(true);
+      setUploadError('');
+
+      // จำลองการประเมินผล
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // สร้างข้อมูลการประเมิณจำลอง
+      const mockEvaluationResult = {
+        evaluation: `คะแนน: 8/10
+        1. จุดเด่นของคำตอบ
+          - อธิบายหลักการได้ครบถ้วนและชัดเจน
+          - มีการยกตัวอย่างประกอบที่เข้าใจง่าย
+          - การจัดลำดับเนื้อหาเป็นระบบ
+
+        2. จุดที่ขาดหรือไม่ถูกต้อง
+          - ยังขาดการอธิบายในบางแง่มุมที่สำคัญ
+          - การเชื่อมโยงระหว่างหลักการยังไม่สมบูรณ์
+
+        3. ข้อเสนอแนะในการปรับปรุง
+          - ควรเพิ่มการวิเคราะห์เชิงลึกในบางประเด็น
+          - ควรยกตัวอย่างที่หลากหลายมากขึ้น`,
+        score: 8,
+        subject_id: classId,
+        question_id: questionId,
+      };
+
+      setEvaluationResult(mockEvaluationResult);
+    } catch (error) {
+      console.error('Error evaluating answer:', error);
+      setUploadError('เกิดข้อผิดพลาดในการประเมินผล');
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+  // ฟังก์ชั่นเริ่มอัปโหลดอัตโนมัติ
+  const startAutoUpload = async () => {
+    // เช็คว่าข้อูลครบหรือไม่
+    if (!questionId) {
+      
+    }
+  };
+
   // ฟังก์ชันบันทึกและย้ายไปหน้าถัดไป
   const handleSaveAndContinue = async () => {
     try {
@@ -318,7 +430,7 @@ export default function UploadFilesPage() {
         );
       }
     };
-    
+
     return (
       <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
@@ -344,6 +456,55 @@ export default function UploadFilesPage() {
             </svg>
             <span className="font-medium">ประเภท:</span> {file.type === 'application/pdf' ? 'PDF Document' : file.type}
           </p>
+        </div>
+      </div>
+    );
+  };
+
+  // Component สำหรับแสดงไฟล์ที่อัปโหลดแล้ว
+  const UploadedFileInfo = ({ uploadInfo, title, icon }) => {
+    if (!uploadInfo) return null;
+    
+    return (
+      <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+        <h4 className="font-medium text-green-700 mb-2 flex items-center gap-2">
+          {icon}
+          {title} - อัปโหลดเรียบร้อยแล้ว
+        </h4>
+        <div className="space-y-1">
+          <p className="text-sm text-gray-700 flex items-center gap-2">
+            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+            </svg>
+            <span className="font-medium">ชื่อไฟล์:</span> {uploadInfo.originalName}
+          </p>
+          <p className="text-sm text-gray-700 flex items-center gap-2">
+            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span className="font-medium">ขนาด:</span> {(uploadInfo.fileSize / (1024 * 1024)).toFixed(2)} MB
+          </p>
+          <p className="text-sm text-gray-700 flex items-center gap-2">
+            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            <span className="font-medium">อัปโหลดเมื่อ:</span> {new Date(uploadInfo.uploadedAt).toLocaleString('th-TH')}
+          </p>
+          {/* ลิงค์ดูไฟล์ (ถ้าเป็น PDF) */}
+          <div className="mt-2">
+            <a 
+              href={uploadInfo.publicUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              ดูไฟล์
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -485,20 +646,29 @@ export default function UploadFilesPage() {
                     </h2>
                     <p className="text-gray-600 mb-4">อัปโหลดไฟล์เฉลยของอาจารย์ เพื่อใช้ในการเปรียบเทียบกับคำตอบของนักศึกษา</p>
                     
-                    <FileUploader
-                      onFileChange={handleAnswerKeyChange}
-                      accept=".pdf"
-                      fileCategory="PDF"
-                      fileType="PDF"
-                      label="ไฟล์เฉลยจากอาจารย์ (PDF)"
-                      required={true}
-                      id="answerKey"
-                      name="answerKey"
-                      maxSize="10MB"
-                    />
-                    
-                    {/* แสดงข้อมูลไฟล์เฉลยที่เลือก */}
-                    <FileInfo file={answerKeyFile} title="ไฟล์ที่เลือก" />
+                    {answerKeyUploadInfo ? (
+                      <UploadedFileInfo 
+                        uploadInfo={answerKeyUploadInfo} 
+                        title="ไฟล์เฉลยอาจารย์" 
+                        icon={
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        }
+                      />
+                    ) : (
+                      <FileUploader
+                        onFileChange={handleAnswerKeyChange}
+                        accept=".pdf"
+                        fileCategory="PDF"
+                        fileType="PDF"
+                        label="ไฟล์เฉลยจากอาจารย์ (PDF)"
+                        required={true}
+                        id="answerKey"
+                        name="answerKey"
+                        maxSize="10MB"
+                      />
+                    )}
                   </div>
                   
                   {/* บล็อคกลาง - การประเมินผล */}
@@ -532,41 +702,58 @@ export default function UploadFilesPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center text-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        <p className="text-gray-500 mb-1">เมื่ออัปโหลดไฟล์ครบ AI จะประเมินคำตอบ</p>
-                        <p className="text-gray-400 text-sm">โปรดอัปโหลดไฟล์เฉลยและไฟล์คำตอบ</p>
-                     </div>
-                   )}
-                 </div>
+                      <div className="text-center">
+                        <button
+                          onClick={handleEvaluate}
+                          disabled={!answerKeyUploadInfo || !studentAnswerUploadInfo || !questionId}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition disabled:bg-purple-300 disabled:cursor-not-allowed"
+                        >
+                          ประเมินผล
+                        </button>
+                        {(!answerKeyUploadInfo || !studentAnswerUploadInfo) && (
+                          <p className="text-sm text-gray-500 mt-2">กรุณาอัปโหลดไฟล์ทั้งสองก่อนประเมินผล</p>
+                        )}
+                        {!questionId && (
+                          <p className="text-sm text-gray-500 mt-2">กรุณาระบุรหัสคำถามก่อนประเมินผล</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                  
                  {/* บล็อคขวา - อัปโหลดไฟล์คำตอบนักเรียน */}
                  <div className="bg-white p-6 rounded-lg shadow-md">
-                   <h2 className="text-xl font-semibold text-[#333333] mb-4 flex items-center">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                     </svg>
-                     คำตอบของนักศึกษา
-                   </h2>
-                   <p className="text-gray-600 mb-4">อัปโหลดไฟล์คำตอบของนักศึกษาเพื่อให้ AI ประเมินผล</p>
-                   
-                   <FileUploader
-                     onFileChange={handleStudentAnswerChange}
-                     accept=".pdf"
-                     fileCategory="PDF"
-                     fileType="PDF"
-                     label="ไฟล์คำตอบนักศึกษา (PDF)"
-                     required={true}
-                     id="studentAnswer"
-                     name="studentAnswer"
-                     maxSize="10MB"
-                   />
-                   
-                   {/* แสดงข้อมูลไฟล์คำตอบที่เลือก */}
-                   <FileInfo file={studentAnswerFile} title="ไฟล์ที่เลือก" />
-                 </div>
+                    <h2 className="text-xl font-semibold text-[#333333] mb-4 flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      คำตอบของนักศึกษา
+                    </h2>
+                    <p className="text-gray-600 mb-4">อัปโหลดไฟล์คำตอบของนักศึกษาเพื่อให้ AI ประเมินผล</p>
+                    
+                    {studentAnswerUploadInfo ? (
+                      <UploadedFileInfo 
+                        uploadInfo={studentAnswerUploadInfo} 
+                        title="ไฟล์คำตอบนักศึกษา" 
+                        icon={
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        }
+                      />
+                    ) : (
+                      <FileUploader
+                        onFileChange={handleStudentAnswerChange}
+                        accept=".pdf"
+                        fileCategory="PDF"
+                        fileType="PDF"
+                        label="ไฟล์คำตอบนักศึกษา (PDF)"
+                        required={true}
+                        id="studentAnswer"
+                        name="studentAnswer"
+                        maxSize="10MB"
+                      />
+                    )}
+                  </div>
                </div>
                
                {/* แสดงความคืบหน้าการอัปโหลด */}
