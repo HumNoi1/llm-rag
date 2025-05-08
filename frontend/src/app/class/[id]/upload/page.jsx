@@ -208,17 +208,27 @@ export default function UploadFilesPage() {
   const evaluateAnswer = async () => {
     try {
       setIsEvaluating(true);
+      setUploadError('');
+
+      // ตรวจสอบข้อมูลที่จำเป็น
+      if (!answerKeyUploadInfo || !studentAnswerUploadInfo) {
+        throw new Error('กรุณาอัปโหลดไฟล์เฉลยและคำตอบนักเรียนก่อนประเมิน');
+      }
       
       // เตรียมข้อมูลสำหรับการประเมิน
       const evaluationRequest = {
-        question: `คำถามรหัส: ${questionId}`,
-        student_answer: studentAnswerFile?.name || 'คำตอบนักเรียน',
         subject_id: classId,
-        question_id: questionId
+        question_id: questionId,
+        answer_key_url: answerKeyUploadInfo.publicUrl,
+        student_answer_url: studentAnswerUploadInfo.publicUrl,
+        answer_key_path: answerKeyUploadInfo.path,
+        student_answer_path: studentAnswerUploadInfo.path,
       };
+
+      console.log('ข้อมูลการประเมินไปยัง backend:', evaluationRequest);
       
       // เรียก API ประเมินคำตอบ
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/evaluation/evaluate`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/evaluation/evaluate-from-storage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,6 +237,7 @@ export default function UploadFilesPage() {
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
         throw new Error('ไม่สามารถประเมินคำตอบได้');
       }
       
@@ -236,33 +247,42 @@ export default function UploadFilesPage() {
     } catch (error) {
       // หากไม่สามารถประเมินได้จริง ใช้การจำลองผลประเมิน (สำหรับทดสอบ)
       console.error('Error evaluating answer:', error);
-      
-      // สร้างผลประเมินจำลอง
-      const mockResult = {
-        evaluation: `คะแนน: 8/10
+      setUploadError(`เกิดข้อผิดพลาดในการประเมินผล: ${error.message}`);
 
-1. จุดเด่นของคำตอบ
-   - อธิบายหลักการได้ครบถ้วน
-   - มีการยกตัวอย่างที่ชัดเจน
-   - การเรียบเรียงเนื้อหาเป็นระบบ
+      // หากต้องการให้ UI ทำงานต่อได้แม้ backend จะมีปัญหา (สำหรับการทดสอบ)
+      if (ProcessingInstruction.env.NODE_ENV === 'development') {
+        console.warn('ใช้ผลประเมินจำลองในโหมดพัฒนา');
+        const mockResult = generateMockEvaluationResult();
+        setEvaluationResult(mockResult);
+        return mockResult;
+      }
 
-2. จุดที่ขาดหรือไม่ถูกต้อง
-   - ขาดการอธิบายในบางประเด็นสำคัญ
-   - การอ้างอิงยังไม่ครบถ้วน
-
-3. ข้อเสนอแนะในการปรับปรุง
-   - ควรเพิ่มการวิเคราะห์เชิงลึก
-   - ควรอธิบายความเชื่อมโยงระหว่างทฤษฎีและการปฏิบัติ`,
-        score: 8.0,
-        subject_id: classId,
-        question_id: questionId
-      };
-      
-      setEvaluationResult(mockResult);
-      return mockResult;
+      throw error;
     } finally {
       setIsEvaluating(false);
     }
+  };
+
+  // สร้างผลประเมินจำลอง (สำหรับทดสอบ)
+  const generateMockEvaluationResult = () => {
+    return {
+      evaluation: `คะแนน: 8/10
+      1. จุดเด่นของคำตอบ
+        - อธิบายหลักการได้ครบถ้วน
+        - มีการยกตัวอย่างที่ชัดเจน
+        - การเรียบเรียงเนื้อหาเป็นระบบ
+
+      2. จุดที่ขาดหรือไม่ถูกต้อง
+        - ขาดการอธิบายในบางประเด็นสำคัญ
+        - การอ้างอิงยังไม่ครบถ้วน
+
+      3. ข้อเสนอแนะในการปรับปรุง
+        - ควรเพิ่มการวิเคราะห์เชิงลึก
+        - ควรอธิบายความเชื่อมโยงระหว่างทฤษฎีและการปฏิบัติ`,
+        score: 8,
+        subject_id: classId,
+        question_id: questionId,
+    };
   };
 
   // บันทึกข้อมูลการอัปโหลดลงฐานข้อมูล
@@ -364,13 +384,14 @@ export default function UploadFilesPage() {
       setUploadStatus('กำลังประเมินผล...');
       setUploadProgress(70);
       
+      // เรียกฟังก์ชั่นประเมินผลผ่าน Backend
       const result = await evaluateAnswer();
-      setUploadProgress(80);
-      
+      setUploadProgress(90);
+
       // 4. บันทึกข้อมูลลงฐานข้อมูล
       setUploadStatus('กำลังบันทึกข้อมูล...');
-      await saveUploadRecord(answerKeyResult, studentAnswerResult, result);
-      
+      await saveEvaluationResult(result);
+
       // เสร็จสิ้นการอัปโหลด
       setUploadProgress(100);
       setUploadSuccess(true);
@@ -399,19 +420,98 @@ export default function UploadFilesPage() {
     try {
       setIsEvaluating(true);
       setUploadError('');
-      
-      // เรียกใช้ฟังก์ชันประเมินผล
+
+      // แสดงผลการประเมินผล
+      setUploadStatus('กำลังส่งข้อมูลไปยัง backend เพื่อประเมินผล...');
+
+      // เรียกใช้ฟังก์ชั่นประเมินผล
       const result = await evaluateAnswer();
-      setEvaluationResult(result);
-      
+
+      if (result) {
+        setUploadStatus('ประเมินผลเสร็จสิ้น');
+
+        // บันทึกข้อมูลการประเมินผลลงฐานข้อมูล
+        try {
+          await saveUploadRecord(result);
+          console.log('บันทึกข้อมูลการประเมินผลสำเร็จ');
+        } catch (saveError) {
+          console.error('Error saving evaluation result:', error);
+          // การประเมินยังคงสำเร็จแม้จะไม่สามารถบันทึกได้
+        }
+      }
     } catch (error) {
       console.error('Error evaluating answer:', error);
-      setUploadError('เกิดข้อผิดพลาดในการประเมินผล');
+      setUploadError('เกิดข้อผิดพลาดในการประเมินผล กรุณาลองใหม่อีกครั้ง');
     } finally {
       setIsEvaluating(false);
     }
   };
 
+  const saveEvaluationResult = async () => {
+    try {
+      // เตรียมข้อมูลสำหรับบันทึก
+      const updateData = {
+        status: 'completed',
+        evaluation_result: evaluationResult,
+        updated_at: new Date().toISOString(),
+      };
+
+      // สร้างเงื่อนไขสำหรับการค้นหาข้อมูล
+      const condition = {
+        class_id: classId,
+        question_id: questionId,
+        answer_key_path: answerKeyUploadInfo.path,
+        student_answer_path: studentAnswerUploadInfo.path,
+      };
+
+      // ตรวจสอบว่ามีบันทึกอยู่แล้วหรือไม่
+      const { data: existingData, error: findError } = await supabase
+        .from('uploads')
+        .select('*')
+        .match(condition)
+        .limit(1);
+
+      if (findError) {
+        throw findError;
+      }
+
+      // ถ้ามีบันทึกอยู่แล้ว ให้อัปเดต
+      if (existingData && existingData.length > 0) {
+        const { error: updateError } = await supabase
+          .from('uploads')
+          .update(updateData)
+          .eq('id', existingData[0].id);
+        
+        if (updateError) throw updateError;
+
+        return { updated: true, id: existingData[0].id };
+      }
+      // ถ้าไม่มีบันทึก ให้สร้างใหม่
+      else {
+        const newRecord = {
+          ...condition,
+          ...updateData,
+          uploaded_at: new Date().toISOString(),
+          answer_key_filename: answerKeyUploadInfo.originalName,
+          student_answer_filename: studentAnswerUploadInfo.originalName,
+          answer_key_url: answerKeyUploadInfo.publicUrl,
+          student_answer_url: studentAnswerUploadInfo.publicUrl,
+        };
+
+        const { data: insertData, error: insertError } = await supabase
+          .from('uploads')
+          .insert([newRecord])
+          .select();
+        
+        if (insertError) throw insertError;
+
+        return { inserted: true, id: insertData[0].id };
+      }
+    } catch (error) {
+      console.error('Error saving evaluation result:', error);
+      throw error;
+    }
+  };
 
   // ฟังก์ชันบันทึกและย้ายไปหน้าถัดไป
   const handleSaveAndContinue = () => {
