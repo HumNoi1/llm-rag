@@ -765,7 +765,7 @@ export default function UploadFilesPage() {
                           </div>
                           <p className="text-gray-700">คะแนนจาก AI</p>
                         </div>
-                        <div className="bg-gray-50 p-3 rounded-md max-h-48 overflow-y-auto text-sm">
+                        <div className="bg-gray-50 p-3 rounded-md max-h-48 overflow-y-auto text-sm text-black">
                           <p className="whitespace-pre-line">{evaluationResult.evaluation}</p>
                         </div>
                       </div>

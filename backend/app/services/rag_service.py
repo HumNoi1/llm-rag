@@ -283,3 +283,39 @@ class AnswerEvaluationService:
             except Exception as e2:
                 print(f"Error in fallback similarity search: {str(e2)}")
             return []
+
+    async def load_pdf_from_url(self, file_content: bytes, file_name: str, metadata=None):
+        """
+        โหลดเอกสารจากเนื้อหาไฟล์ที่ดาวน์โหลดจาก URL
+        
+        Args:
+            file_content: เนื้อหาของไฟล์ในรูปแบบไบต์
+            file_name: ชื่อไฟล์
+            metadata: ข้อมูลเมตาดาต้าเพิ่มเติม
+            
+        Returns:
+            เอกสารที่โหลดได้
+        """
+        return self.load_pdf_document(file_content, file_name, metadata)
+
+    async def index_answer_key_from_url(self, answer_key_content: bytes, file_name: str, subject_id: str, question_id: str):
+        """
+        เก็บเอกสารเฉลยจากไฟล์ที่ดาวน์โหลดจาก URL ในฐานข้อมูล ChromaDB
+        
+        Args:
+            answer_key_content: เนื้อหาของเฉลย (ไฟล์ PDF)
+            file_name: ชื่อไฟล์
+            subject_id: รหัสวิชา
+            question_id: รหัสคำถาม
+            
+        Returns:
+            จำนวนชิ้นส่วนที่แบ่งได้
+        """
+        self._validate_pdf_file(file_name)
+        
+        # สร้าง metadata และโหลดเอกสาร
+        metadata = self._create_answer_metadata(subject_id, question_id)
+        documents = await self.load_pdf_from_url(answer_key_content, file_name, metadata)
+        
+        # แบ่งเอกสารและบันทึกลง ChromaDB
+        return self._split_and_store_documents(documents, subject_id, question_id)

@@ -4,6 +4,10 @@ from fastapi.responses import JSONResponse
 from ..services.llm_service import LLMEvaluationService
 from ..services.rag_service import AnswerEvaluationService
 from ..models.schemas import EvaluationRequest, EvaluationResponse
+from ..services.supabase_service import SupabaseService
+from ..models.schemas import StorageEvaluationRequest
+import tempfile
+import os
 
 router = APIRouter(prefix="/api/evaluation", tags=["evaluation"])
 
@@ -126,3 +130,86 @@ def _create_upload_success_response(filename: str, subject_id: str, question_id:
         "file_type": "PDF",
         "chunks": chunks
     })
+
+@router.post("/evaluate-from-storage", response_model=EvaluationResponse)
+async def evaluate_from_storage(
+    request: StorageEvaluationRequest,
+    llm_service: LLMEvaluationService = Depends(),
+    rag_service: AnswerEvaluationService = Depends(),
+    supabase_service: SupabaseService = Depends()
+):
+    """
+    ประเมินคำตอบจากไฟล์ที่เก็บใน Supabase Storage
+    
+    Args:
+        request: ข้อมูลการประเมินจาก Storage
+        llm_service: LLMEvaluationService (dependency injection)
+        rag_service: AnswerEvaluationService (dependency injection)
+        supabase_service: SupabaseService (dependency injection)
+    
+    Returns:
+        EvaluationResponse ผลการประเมินคำตอบ
+    """
+    try:
+        # ดาวน์โหลดไฟล์เฉลย
+        answer_key_content, answer_key_filename = await supabase_service.download_file_from_url(request.answer_key_url)
+        
+        # ดาวน์โหลดไฟล์คำตอบนักเรียน
+        student_answer_content, student_answer_filename = await supabase_service.download_file_from_url(request.student_answer_url)
+        
+        # เพิ่มเฉลยเข้า ChromaDB
+        chunks = await rag_service.index_answer_key_from_url(
+            answer_key_content=answer_key_content,
+            file_name=answer_key_filename,
+            subject_id=request.subject_id,
+            question_id=request.question_id
+        )
+        
+        print(f"เพิ่มเฉลยเข้า ChromaDB สำเร็จ: {chunks} ชิ้นส่วน")
+        
+        # สกัดข้อความจากไฟล์คำตอบนักเรียน
+        temp_path = None
+        try:
+            # สร้างไฟล์ชั่วคราว
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+                temp_file.write(student_answer_content)
+                temp_path = temp_file.name
+            
+            # สกัดข้อความจาก PDF
+            student_answer = rag_service.extract_text_from_pdf(temp_path)
+            
+            # สร้างคำถามจาก context
+            context_docs = rag_service.retrieve_relevant_context(
+                query="ข้อสอบอัตนัย",
+                subject_id=request.subject_id,
+                question_id=request.question_id
+            )
+            
+            context_text = "\n\n".join(doc.page_content for doc in context_docs)
+            question = f"ให้ตอบคำถามต่อไปนี้ตามเนื้อหาที่เรียน: {context_text[:300]}..."
+            
+            # ประเมินคำตอบ
+            result = llm_service.evaluate_answer(
+                question=question,
+                student_answer=student_answer,
+                subject_id=request.subject_id,
+                question_id=request.question_id
+            )
+            
+            return EvaluationResponse(
+                evaluation=result["evaluation"],
+                score=result["score"],
+                subject_id=request.subject_id,
+                question_id=request.question_id
+            )
+            
+        finally:
+            # ลบไฟล์ชั่วคราวหลังใช้งาน
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)
+                
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"เกิดข้อผิดพลาดในการประเมินคำตอบ: {str(e)}"
+        )
