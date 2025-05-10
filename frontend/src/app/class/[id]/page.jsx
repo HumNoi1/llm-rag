@@ -19,7 +19,9 @@ export default function ClassDetailPage() {
   const [classInfo, setClassInfo] = useState(null);
   const [uploadedQuestions, setUploadedQuestions] = useState([]);
   const [evaluatedAnswers, setEvaluatedAnswers] = useState([]);
-  const [loading, setLoading] = useState(true); // เริ่มต้นเป็น true เพื่อแสดง loading indicator
+  // เพิ่ม state ใหม่สำหรับเก็บข้อมูลไฟล์และคะแนนของนักเรียน
+  const [studentScores, setStudentScores] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   // ดึงข้อมูลรายวิชาเมื่อโหลดหน้า
@@ -82,6 +84,24 @@ export default function ClassDetailPage() {
             score: upload.evaluation_result.score,
             evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH')
           })));
+          
+          // สร้างข้อมูลสำหรับตารางคะแนนนักเรียน
+          const studentScoresList = uploadsData?.filter(upload => upload.status === 'completed' && upload.evaluation_result)
+            .map(upload => ({
+              id: upload.id,
+              questionId: upload.question_id,
+              studentName: upload.student_answer_filename?.split('.')[0] || 'ไม่ระบุชื่อ',
+              fileName: upload.student_answer_filename || 'ไม่ระบุชื่อไฟล์',
+              score: upload.evaluation_result.score,
+              evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH'),
+              answerKeyFile: upload.answer_key_filename || '-',
+              uploadDate: new Date(upload.uploaded_at).toLocaleDateString('th-TH')
+            })) || [];
+          
+          // เรียงลำดับตามคะแนน (มากไปน้อย)
+          studentScoresList.sort((a, b) => b.score - a.score);
+          
+          setStudentScores(studentScoresList);
         }
       } catch (error) {
         console.error('Error fetching class info:', error);
@@ -351,6 +371,102 @@ export default function ClassDetailPage() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                )}
+                
+                {/* เพิ่มตารางแสดงไฟล์และคะแนนของนักเรียนทั้งหมด */}
+                {studentScores.length > 0 && (
+                  <div className="mt-8 border-t border-gray-200 pt-6">
+                    <h3 className="font-medium text-[#333333] mb-4 flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      ตารางคะแนนนักเรียนทั้งหมด ({studentScores.length} คน)
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสคำถาม</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อนักเรียน</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อไฟล์</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คะแนน</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่อัปโหลด</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ประเมิน</th>
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {studentScores.map((student) => (
+                            <tr key={student.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">{student.questionId}</td>
+                              <td className="px-6 py-4">{student.studentName}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.fileName}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  student.score >= 8 ? 'bg-green-100 text-green-800' : 
+                                  student.score >= 5 ? 'bg-yellow-100 text-yellow-800' : 
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {student.score}/10
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">{student.uploadDate}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">{student.evaluatedDate}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button
+                                  onClick={() => router.push(`/class/${classId}/compare/${student.questionId}?student=${student.id}`)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                >
+                                  ดูรายละเอียด
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {/* ปุ่มดาวน์โหลดคะแนนทั้งหมด (CSV) */}
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => {
+                          // สร้างข้อมูล CSV และดาวน์โหลด
+                          const headers = ['รหัสคำถาม', 'ชื่อนักเรียน', 'คะแนน', 'วันที่ประเมิน'];
+                          const csvData = studentScores.map(student => [
+                            student.questionId,
+                            student.studentName,
+                            student.score,
+                            student.evaluatedDate
+                          ]);
+                          
+                          // เพิ่มหัวตาราง
+                          csvData.unshift(headers);
+                          
+                          // แปลงเป็น CSV
+                          const csvContent = csvData.map(row => row.join(',')).join('\n');
+                          
+                          // สร้าง Blob และดาวน์โหลด
+                          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          
+                          link.setAttribute('href', url);
+                          link.setAttribute('download', `คะแนน_${classInfo?.code || classId}_${new Date().toLocaleDateString('th-TH')}.csv`);
+                          link.style.visibility = 'hidden';
+                          
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        ดาวน์โหลดคะแนนทั้งหมด (CSV)
+                      </button>
                     </div>
                   </div>
                 )}
