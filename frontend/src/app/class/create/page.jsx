@@ -104,7 +104,6 @@ export default function CreateClassPage() {
         academic_year: formData.year,
         description: formData.description || null,
         is_active: formData.isActive,
-        students_count: 0, // เริ่มต้นยังไม่มีนักเรียน
         created_at: new Date().toISOString(),
         teacher_id: user.id
       };

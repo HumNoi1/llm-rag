@@ -200,7 +200,7 @@ export default function ClassDetailPage() {
                 </div>
                 
                 {/* แสดงข้อมูลสรุป */}
-                <div className="flex flex-wrap gap-4 mt-4">
+                <div className="flex flex-wrap gap-4 mt-4 text-black">
                   <div className="bg-blue-50 p-4 rounded-md flex items-center">
                     <div className="bg-blue-100 rounded-full p-2 mr-3">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -244,7 +244,7 @@ export default function ClassDetailPage() {
               </div>
               
               {/* ส่วนการจัดการการตรวจข้อสอบ */}
-              <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+              <div className="bg-white p-6 rounded-lg shadow-md mb-6 text-black">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-semibold text-[#333333]">การจัดการตรวจข้อสอบ</h2>
                   <PrimaryButtonLink href={`/class/${classId}/upload`}>
@@ -266,7 +266,7 @@ export default function ClassDetailPage() {
                   </ol>
                 </div>
                 
-                <div className="mb-6">
+                <div className="mb-6 text-black">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-medium text-[#333333]">ข้อสอบที่อัปโหลดแล้ว ({uploadedQuestions.length})</h3>
                   </div>
