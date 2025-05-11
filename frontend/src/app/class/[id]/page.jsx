@@ -7,7 +7,6 @@ import Header from '@/components/Header';
 import { PrimaryButtonLink } from '@/components/ui/NavLink';
 import supabase from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function ClassDetailPage() {
   const router = useRouter();
@@ -130,7 +129,6 @@ export default function ClassDetailPage() {
   };
 
   return (
-    <ProtectedRoute>
       <div className="min-h-screen bg-[#F3F4F6]">
         <Header />
         
@@ -503,6 +501,5 @@ export default function ClassDetailPage() {
           )}
         </main>
       </div>
-    </ProtectedRoute>
   );
 }

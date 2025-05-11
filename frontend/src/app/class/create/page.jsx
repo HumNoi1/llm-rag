@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import { PrimaryButtonLink } from '@/components/ui/NavLink';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/context/AuthContext';
 import supabase from '@/lib/supabase';
 
@@ -154,7 +153,6 @@ export default function CreateClassPage() {
   // แสดงข้อความสำเร็จหลังจากบันทึก
   if (submitSuccess) {
     return (
-      <ProtectedRoute>
         <div className="min-h-screen bg-[#F3F4F6]">
           <Header />
           <main className="container mx-auto p-4 md:p-6">
@@ -170,12 +168,10 @@ export default function CreateClassPage() {
             </div>
           </main>
         </div>
-      </ProtectedRoute>
     );
   }
 
   return (
-    <ProtectedRoute>
       <div className="min-h-screen bg-[#F3F4F6]">
         <Header />
         
@@ -337,6 +333,5 @@ export default function CreateClassPage() {
           </form>
         </main>
       </div>
-    </ProtectedRoute>
   );
 }

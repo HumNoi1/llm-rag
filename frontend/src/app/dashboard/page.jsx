@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import ClassCard from '@/components/Classcard';
 import { useAuth } from '@/context/AuthContext';
 import supabase from '@/lib/supabase';
@@ -72,7 +71,6 @@ export default function Dashboard() {
   };
 
   return (
-    <ProtectedRoute>
       <div className="min-h-screen bg-[#F3F4F6]">
         <Header user={user} onLogout={handleLogout} />
 
@@ -200,6 +198,5 @@ export default function Dashboard() {
           )}
         </main>
       </div>
-    </ProtectedRoute>
   );
 }

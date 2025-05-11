@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import { PrimaryButtonLink } from '@/components/ui/NavLink';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import supabase from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import FileUploader from '@/components/FileUploader';
@@ -521,7 +520,6 @@ export default function UploadFilesPage() {
   };
 
   return (
-    <ProtectedRoute>
       <div className="min-h-screen bg-[#F3F4F6]">
         <Header />
         
@@ -786,6 +784,5 @@ export default function UploadFilesPage() {
           )}
         </main>
       </div>
-    </ProtectedRoute>
   );
 }
