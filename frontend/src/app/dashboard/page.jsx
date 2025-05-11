@@ -16,7 +16,6 @@ export default function Dashboard() {
   
   // สร้าง state สำหรับเก็บข้อมูลรายวิชา
   const [classes, setClasses] = useState([]);
-  const [loading, setLoading] = useState(false); // เริ่มต้นเป็น false
   const [error, setError] = useState(null);
   const [dataFetched, setDataFetched] = useState(false);
 
@@ -25,7 +24,6 @@ export default function Dashboard() {
     if (!user) return;
     
     try {
-      setLoading(true);
       setError(null);
       
       // ดึงข้อมูลจากตาราง classes
@@ -44,8 +42,6 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error fetching classes:', error);
       setError('ไม่สามารถดึงข้อมูลได้: ' + error.message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -55,11 +51,6 @@ export default function Dashboard() {
       fetchClasses();
     }
   }, [user, dataFetched]);
-
-  // ฟังก์ชัน refresh ข้อมูลเมื่อคลิกปุ่ม
-  const handleRefresh = () => {
-    fetchClasses();
-  };
 
   // ฟังก์ชันสำหรับออกจากระบบ
   const handleLogout = async () => {
@@ -75,31 +66,7 @@ export default function Dashboard() {
         <Header user={user} onLogout={handleLogout} />
 
         <main className="container mx-auto p-4 md:p-6">
-          {/* ปุ่ม refresh ข้อมูล */}
-          <div className="flex justify-end mb-4">
-            <button
-              onClick={handleRefresh}
-              className="flex items-center text-sm text-blue-600 hover:text-blue-800"
-              disabled={loading}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {loading ? 'กำลังโหลด...' : 'รีเฟรชข้อมูล'}
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="text-center">
-                <svg className="animate-spin h-10 w-10 mx-auto mb-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p className="text-gray-700">กำลังโหลดข้อมูล...</p>
-              </div>
-            </div>
-          ) : error ? (
+          {error ? (
             <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
               <div className="flex items-center">
                 <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -107,12 +74,6 @@ export default function Dashboard() {
                 </svg>
                 <p>{error}</p>
               </div>
-              <button 
-                onClick={handleRefresh}
-                className="mt-2 text-sm font-medium text-red-700 hover:underline"
-              >
-                ลองอีกครั้ง
-              </button>
             </div>
           ) : (
             <>
