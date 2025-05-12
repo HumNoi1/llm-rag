@@ -84,7 +84,11 @@ export default function ClassDetailPage() {
             questionId: upload.question_id,
             studentName: upload.student_answer_filename?.split('.')[0] || 'ไม่ระบุชื่อ',
             score: upload.evaluation_result.score,
-            evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH')
+            evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH'),
+            // เพิ่ม URL ของไฟล์คำตอบนักเรียน
+            studentAnswerUrl: upload.student_answer_url || null,
+            // เพิ่ม URL ของไฟล์เฉลย
+            answerKeyUrl: upload.answer_key_url || null
           })));
           
           // สร้างข้อมูลสำหรับตารางคะแนนนักเรียน
@@ -97,7 +101,11 @@ export default function ClassDetailPage() {
               score: upload.evaluation_result.score,
               evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH'),
               answerKeyFile: upload.answer_key_filename || '-',
-              uploadDate: new Date(upload.uploaded_at).toLocaleDateString('th-TH')
+              uploadDate: new Date(upload.uploaded_at).toLocaleDateString('th-TH'),
+              // เพิ่ม URL ของไฟล์คำตอบนักเรียน
+              studentAnswerUrl: upload.student_answer_url || null,
+              // เพิ่ม URL ของไฟล์เฉลย
+              answerKeyUrl: upload.answer_key_url || null
             })) || [];
           
           // เรียงลำดับตามคะแนน (มากไปน้อย)
@@ -179,6 +187,17 @@ export default function ClassDetailPage() {
     if (classId && user) {
       setLoading(true);
       fetchClassInfo();
+    }
+  };
+
+  // ฟังก์ชันเปิดไฟล์นักเรียน
+  const handleViewStudentFile = (studentAnswerUrl) => {
+    if (studentAnswerUrl) {
+      // เปิดไฟล์ในแท็บใหม่
+      window.open(studentAnswerUrl, '_blank');
+    } else {
+      // ถ้าไม่มี URL ให้แสดงข้อความแจ้งเตือน
+      alert('ไม่พบลิงก์ไฟล์คำตอบของนักเรียน');
     }
   };
 
@@ -268,7 +287,6 @@ export default function ClassDetailPage() {
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำถาม</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่อัปโหลด</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -283,14 +301,6 @@ export default function ClassDetailPage() {
                               }`}>
                                 {question.status === 'evaluated' ? 'ประเมินแล้ว' : 'รอการประเมิน'}
                               </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button
-                                onClick={() => handleViewEvaluation(question.id)}
-                                className="text-blue-600 hover:text-blue-900"
-                              >
-                                ดูผลการประเมิน
-                              </button>
                             </td>
                           </tr>
                         ))}
@@ -349,10 +359,10 @@ export default function ClassDetailPage() {
                             <td className="px-6 py-4 whitespace-nowrap">{answer.evaluatedDate}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
-                                onClick={() => router.push(`/class/${classId}/compare/${answer.questionId}`)}
+                                onClick={() => handleViewStudentFile(answer.studentAnswerUrl)}
                                 className="text-blue-600 hover:text-blue-900"
                               >
-                                ดูรายละเอียด
+                                ดูไฟล์นักเรียน
                               </button>
                             </td>
                           </tr>
@@ -428,10 +438,10 @@ export default function ClassDetailPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{student.evaluatedDate}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
-                                onClick={() => router.push(`/class/${classId}/compare/${student.questionId}?student=${student.id}`)}
+                                onClick={() => handleViewStudentFile(student.studentAnswerUrl)}
                                 className="text-blue-600 hover:text-blue-900"
                               >
-                                ดูรายละเอียด
+                                ดูไฟล์นักเรียน
                               </button>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center">
