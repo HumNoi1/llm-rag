@@ -20,6 +20,8 @@ export default function ClassDetailPage() {
   const [evaluatedAnswers, setEvaluatedAnswers] = useState([]);
   const [studentScores, setStudentScores] = useState([]);
   const [error, setError] = useState('');
+  const [approvedScores, setApprovedScores] = useState({});
+  const [approvalLoading, setApprovalLoading] = useState({});
 
   // ดึงข้อมูลรายวิชาเมื่อโหลดหน้า
   useEffect(() => {
@@ -80,6 +82,13 @@ export default function ClassDetailPage() {
             score: upload.evaluation_result.score,
             evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH')
           })));
+
+          // ตั้งค่าสถานะการอนุมัติคะแนน
+          const approvals = {};
+          uploadsData?.forEach(upload => {
+            approvals[upload.id] = upload.approved || false;
+          });
+          setApprovedScores(approvals);
           
           // สร้างข้อมูลสำหรับตารางคะแนนนักเรียน
           const studentScoresList = uploadsData?.filter(upload => upload.status === 'completed' && upload.evaluation_result)
@@ -109,6 +118,49 @@ export default function ClassDetailPage() {
       fetchClassInfo();
     }
   }, [classId, user]);
+
+  const handleApproveScore = async (studentId, isApproved) => {
+    // ตั้งค่า loading stat สำหรับปุ่มที่กำลังกด
+    setApprovalLoading(prev => ({
+      ...prev,
+      [studentId]: true
+    }));
+
+    try {
+      // อัปเดตสถานะบน UI ทันที (Optimistic update)
+      setApprovedScores(prev => ({
+        ...prev,
+        [studentId]: isApproved
+      }));
+
+      // ส่งข้อมูลไปบันทึกที่ฐานข้อมูล
+      const { error } = await supabase
+        .from('uploads')
+        .update({ approved: isApproved })
+        .eq('id', studentId);
+      
+      if (error) {
+        throw error;
+      }
+
+      // แสดงข้อมูลความสำเร็จ (อาจใช้ toast notification)
+      console.log('อนุมัติคะแนนเรียบร้อยแล้ว');
+    } catch (error) {
+      // ถ้าเกิดข้อผิดพลาด ให้คืนค่า stat เดิม
+      setApprovedScores(prev => ({
+        ...prev,
+        [studentId]: !isApproved
+      }));
+      console.error('Error approving score:', error);
+      setError('ไม่สามารถอนุมัติคะแนนได้: ' + error.message);
+    } finally {
+      // ปิด loading stat
+      setApprovalLoading(prev => ({
+        ...prev,
+        [studentId]: false
+      }));
+    }
+  };
 
   // จัดการเมื่อคลิกปุ่มดูผลการประเมิน
   const handleViewEvaluation = (questionId) => {
@@ -221,6 +273,7 @@ export default function ClassDetailPage() {
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่อัปโหลด</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
                           <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
+                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">อนุมัติคะแนน</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
