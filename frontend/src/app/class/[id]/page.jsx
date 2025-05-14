@@ -7,6 +7,7 @@ import Header from '@/components/Header';
 import { PrimaryButtonLink } from '@/components/ui/NavLink';
 import supabase from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import EvaluationReasonModal from '@/components/EvaluationReasonModal';
 
 export default function ClassDetailPage() {
   const router = useRouter();
@@ -25,6 +26,19 @@ export default function ClassDetailPage() {
   // เพิ่ม state สำหรับเก็บสถานะการอนุมัติคะแนน
   const [approvedScores, setApprovedScores] = useState({});
   const [approvalLoading, setApprovalLoading] = useState({});
+  
+  // เพิ่ม state สำหรับ modal แสดงเหตุผลการให้คะแนน
+  const [isReasonModalOpen, setIsReasonModalOpen] = useState(false);
+  const [selectedEvaluation, setSelectedEvaluation] = useState(null);
+
+  // สร้างฟังก์ชันสำหรับเปิดไฟล์นักเรียน
+  const handleViewStudentFile = (fileUrl) => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
+    } else {
+      alert('ไม่พบ URL ไฟล์นักเรียน');
+    }
+  };
 
   // ดึงข้อมูลรายวิชาเมื่อโหลดหน้า
   useEffect(() => {
@@ -85,10 +99,8 @@ export default function ClassDetailPage() {
             studentName: upload.student_answer_filename?.split('.')[0] || 'ไม่ระบุชื่อ',
             score: upload.evaluation_result.score,
             evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH'),
-            // เพิ่ม URL ของไฟล์คำตอบนักเรียน
-            studentAnswerUrl: upload.student_answer_url || null,
-            // เพิ่ม URL ของไฟล์เฉลย
-            answerKeyUrl: upload.answer_key_url || null
+            // เพิ่ม URL ไฟล์นักเรียน
+            studentFileUrl: upload.student_answer_url || null
           })));
           
           // สร้างข้อมูลสำหรับตารางคะแนนนักเรียน
@@ -99,13 +111,13 @@ export default function ClassDetailPage() {
               studentName: upload.student_answer_filename?.split('.')[0] || 'ไม่ระบุชื่อ',
               fileName: upload.student_answer_filename || 'ไม่ระบุชื่อไฟล์',
               score: upload.evaluation_result.score,
+              // เพิ่มการดึงข้อมูลเหตุผลการให้คะแนน
+              evaluation: upload.evaluation_result.evaluation || 'ไม่มีข้อมูลการประเมิน',
               evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH'),
               answerKeyFile: upload.answer_key_filename || '-',
               uploadDate: new Date(upload.uploaded_at).toLocaleDateString('th-TH'),
-              // เพิ่ม URL ของไฟล์คำตอบนักเรียน
-              studentAnswerUrl: upload.student_answer_url || null,
-              // เพิ่ม URL ของไฟล์เฉลย
-              answerKeyUrl: upload.answer_key_url || null
+              // เพิ่ม URL ไฟล์นักเรียน
+              studentFileUrl: upload.student_answer_url || null
             })) || [];
           
           // เรียงลำดับตามคะแนน (มากไปน้อย)
@@ -181,32 +193,28 @@ export default function ClassDetailPage() {
       }));
     }
   };
-
-  // ฟังก์ชันรีเฟรชข้อมูล
-  const handleRefresh = () => {
-    if (classId && user) {
-      setLoading(true);
-      fetchClassInfo();
-    }
-  };
-
-  // ฟังก์ชันเปิดไฟล์นักเรียน
-  const handleViewStudentFile = (studentAnswerUrl) => {
-    if (studentAnswerUrl) {
-      // เปิดไฟล์ในแท็บใหม่
-      window.open(studentAnswerUrl, '_blank');
-    } else {
-      // ถ้าไม่มี URL ให้แสดงข้อความแจ้งเตือน
-      alert('ไม่พบลิงก์ไฟล์คำตอบของนักเรียน');
-    }
+  
+  // จัดการเมื่อคลิกปุ่มดูเหตุผลการให้คะแนน
+  const handleViewReason = (student) => {
+    setSelectedEvaluation(student);
+    setIsReasonModalOpen(true);
   };
 
   return (
     <div className="min-h-screen bg-[#F3F4F6]">
       <Header />
       
-      <main className="container mx-auto p-4 md:p-6">
-          // เนื้อหาหลัก
+      <main className="container mx-auto p-4 md:p-6 text-black">
+        {/* Modal แสดงเหตุผลการให้คะแนน */}
+        {isReasonModalOpen && selectedEvaluation && (
+          <EvaluationReasonModal
+            isOpen={isReasonModalOpen}
+            onClose={() => setIsReasonModalOpen(false)}
+            evaluation={selectedEvaluation.evaluation}
+            studentName={selectedEvaluation.studentName}
+            score={selectedEvaluation.score}
+          />
+        )}
           <>
             {/* ส่วนหัวและข้อมูลรายวิชา */}
             <div className="bg-white p-6 rounded-lg shadow-md mb-6">
@@ -287,6 +295,7 @@ export default function ClassDetailPage() {
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำถาม</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่อัปโหลด</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                          <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -301,6 +310,14 @@ export default function ClassDetailPage() {
                               }`}>
                                 {question.status === 'evaluated' ? 'ประเมินแล้ว' : 'รอการประเมิน'}
                               </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => handleViewEvaluation(question.id)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                ดูผลการประเมิน
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -359,7 +376,7 @@ export default function ClassDetailPage() {
                             <td className="px-6 py-4 whitespace-nowrap">{answer.evaluatedDate}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
-                                onClick={() => handleViewStudentFile(answer.studentAnswerUrl)}
+                                onClick={() => handleViewStudentFile(answer.studentFileUrl)}
                                 className="text-blue-600 hover:text-blue-900"
                               >
                                 ดูไฟล์นักเรียน
@@ -415,6 +432,7 @@ export default function ClassDetailPage() {
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คะแนน</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่อัปโหลด</th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ประเมิน</th>
+                          <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">เหตุผลการให้คะแนน</th>
                           <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
                           <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">อนุมัติคะแนน</th>
                         </tr>
@@ -436,9 +454,20 @@ export default function ClassDetailPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{student.uploadDate}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{student.evaluatedDate}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              <button
+                                onClick={() => handleViewReason(student)}
+                                className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-2 py-1 rounded-md text-sm flex items-center mx-auto"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                ดูเหตุผล
+                              </button>
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
-                                onClick={() => handleViewStudentFile(student.studentAnswerUrl)}
+                                onClick={() => handleViewStudentFile(student.studentFileUrl)}
                                 className="text-blue-600 hover:text-blue-900"
                               >
                                 ดูไฟล์นักเรียน
