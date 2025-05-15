@@ -245,8 +245,8 @@ export default function ClassDetailPage() {
     }
   };
 
-  // บันทึกคะแนนที่แก้ไข
-  const handleSaveScore = async (studentId) => {
+  // บันทึกคะแนนที่แก้ไข (ใช้ทั้งในหน้าตารางและ modal)
+  const handleSaveScore = async (studentId, newScore) => {
     setSaveLoading(true);
     
     try {
@@ -254,15 +254,15 @@ export default function ClassDetailPage() {
       const student = studentScores.find(s => s.id === studentId);
       if (!student) throw new Error('ไม่พบข้อมูลนักเรียน');
       
-      // คะแนนใหม่ที่จะบันทึก
-      const newScore = editingScores[studentId];
+      // ใช้คะแนนจากพารามิเตอร์ถ้ามี มิฉะนั้นใช้จาก editingScores
+      const scoreToSave = newScore !== undefined ? newScore : editingScores[studentId];
       
       // สร้างข้อมูล evaluation_result ใหม่ที่จะอัปเดต
       const newEvaluationResult = {
         // คงค่าเดิมของ evaluation ไว้
         evaluation: student.evaluation,
         // อัปเดตค่า score ใหม่
-        score: newScore
+        score: scoreToSave
       };
       
       // บันทึกลงฐานข้อมูล
@@ -280,7 +280,7 @@ export default function ClassDetailPage() {
       setStudentScores(prev => 
         prev.map(s => {
           if (s.id === studentId) {
-            return { ...s, score: newScore, evaluatedDate: new Date().toLocaleDateString('th-TH') };
+            return { ...s, score: scoreToSave, evaluatedDate: new Date().toLocaleDateString('th-TH') };
           }
           return s;
         })
@@ -290,19 +290,29 @@ export default function ClassDetailPage() {
       setEvaluatedAnswers(prev => 
         prev.map(a => {
           if (a.id === studentId) {
-            return { ...a, score: newScore, evaluatedDate: new Date().toLocaleDateString('th-TH') };
+            return { ...a, score: scoreToSave, evaluatedDate: new Date().toLocaleDateString('th-TH') };
           }
           return a;
         })
       );
       
-      // ออกจากโหมดแก้ไข
+      // อัปเดต selectedEvaluation ถ้ามีการแก้ไขคะแนนใน modal
+      if (selectedEvaluation && selectedEvaluation.id === studentId) {
+        setSelectedEvaluation(prev => ({
+          ...prev,
+          score: scoreToSave
+        }));
+      }
+      
+      // ออกจากโหมดแก้ไขในตาราง
       setEditModeStudent(null);
       
       console.log('บันทึกคะแนนสำเร็จ');
+      return true;
     } catch (error) {
       console.error('Error saving score:', error);
       setError('ไม่สามารถบันทึกคะแนนได้: ' + error.message);
+      return false;
     } finally {
       setSaveLoading(false);
     }
@@ -337,6 +347,8 @@ export default function ClassDetailPage() {
             evaluation={selectedEvaluation.evaluation}
             studentName={selectedEvaluation.studentName}
             score={selectedEvaluation.score}
+            studentId={selectedEvaluation.id} 
+            onSaveScore={handleSaveScore} // ส่งฟังก์ชันบันทึกคะแนนไปยัง modal
           />
         )}
           <>
