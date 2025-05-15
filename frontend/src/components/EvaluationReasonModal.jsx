@@ -216,7 +216,6 @@ export default function EvaluationReasonModal({ isOpen, onClose, evaluation, stu
             <span className="text-xl font-bold">{score}/10</span>
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-lg">{scoreText || `คะแนน: ${score}/10`}</h3>
             <p className="text-gray-600 text-sm">ประเมินโดย AI ตามเกณฑ์การให้คะแนนวิชาแนวคิดวิศวกรรมซอฟต์แวร์</p>
           </div>
         </div>
