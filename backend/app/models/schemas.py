@@ -1,5 +1,5 @@
 # backend/app/models/schemas.py
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class EvaluationRequest(BaseModel):
     question: str
@@ -9,7 +9,7 @@ class EvaluationRequest(BaseModel):
 
 class EvaluationResponse(BaseModel):
     evaluation: str
-    score: float
+    score: float = Field(..., description="คะแนนเต็ม 40 คะแนน")
     subject_id: str
     question_id: str
 
