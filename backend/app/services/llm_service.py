@@ -68,27 +68,35 @@ class LLMEvaluationService:
         {answer_key}
         ---
 
-        โปรดประเมินคำตอบโดยให้คะแนนระหว่าง 0 ถึง 10 พร้อมคำอธิบาย
-        เริ่มต้นคำตอบด้วย:
+        โปรดประเมินคำตอบโดยแยกให้คะแนนในแต่ละข้อย่อย (ถ้ามี) ตามเกณฑ์ที่ระบุในเฉลย
+        แต่ละข้อมีคะแนนเต็ม 10 คะแนน 
 
+        รูปแบบการตอบ:
+
+        ### ข้อที่ 1:
         คะแนน: X/10
-
-        จากนั้นแสดงการเปรียบเทียบในแต่ละประเด็นสำคัญดังนี้:
-
-        1. ประเด็นที่ 1
-        คำตอบนักศึกษา: [ข้อความจากคำตอบนักศึกษาในประเด็นนี้]
-        เฉลยอาจารย์: [ข้อความจากเฉลยในประเด็นนี้]
+        คำตอบนักศึกษา: [ข้อความจากคำตอบนักศึกษาในข้อนี้]
+        เฉลยอาจารย์: [ข้อความจากเฉลยในข้อนี้]
         การประเมิน: [อธิบายว่าคำตอบถูกต้องหรือไม่อย่างไร ระบุคีย์เวิร์ดสำคัญที่นักศึกษาตอบถูกหรือตอบขาดไป]
 
-        2. ประเด็นที่ 2
-        คำตอบนักศึกษา: [ข้อความจากคำตอบนักศึกษาในประเด็นนี้]
-        เฉลยอาจารย์: [ข้อความจากเฉลยในประเด็นนี้]
+        ### ข้อที่ 2:
+        คะแนน: X/10
+        คำตอบนักศึกษา: [ข้อความจากคำตอบนักศึกษาในข้อนี้]
+        เฉลยอาจารย์: [ข้อความจากเฉลยในข้อนี้]
         การประเมิน: [อธิบายว่าคำตอบถูกต้องหรือไม่อย่างไร ระบุคีย์เวิร์ดสำคัญที่นักศึกษาตอบถูกหรือตอบขาดไป]
 
-        [ทำเช่นนี้จนครบทุกประเด็นสำคัญ]
+        [ทำเช่นนี้จนครบทุกข้อย่อย]
 
-        ## สรุปเหตุผลการให้คะแนน:
-        [อธิบายโดยรวมว่าทำไมจึงให้คะแนนเท่านี้ ระบุจุดแข็งและจุดอ่อนหลักของคำตอบ]
+        ### สรุปคะแนนรวม:
+        ข้อที่ 1: X/10
+        ข้อที่ 2: X/10
+        ข้อที่ 3: X/10
+        ข้อที่ 4: X/10
+        
+        คะแนนรวม: XX/40 (หรือตามจำนวนข้อที่มี)
+        
+        ### เหตุผลการให้คะแนนโดยรวม:
+        [อธิบายภาพรวมของคำตอบ จุดเด่น จุดด้อย และข้อเสนอแนะเพิ่มเติม]
         """
         
     def create_evaluation_graph(self):
@@ -250,3 +258,90 @@ class LLMEvaluationService:
             "question_id": question_id
         }
         return graph.invoke(initial_state)
+    
+
+    def _extract_question_scores(self, result_text):
+        """
+        แยกคะแนนของแต่ละข้อย่อยจากผลลัพธ์การประเมิน
+        
+        Args:
+            result_text: ข้อความผลลัพธ์
+            
+        Returns:
+            รายการคะแนนของแต่ละข้อย่อย
+        """
+        question_scores = []
+        lines = result_text.split('\n')
+        
+        current_question = None
+        current_score = None
+        current_feedback = []
+        
+        for line in lines:
+            line = line.strip()
+            
+            # ตรวจจับหัวข้อ "ข้อที่ X:"
+            if line.startswith('### ข้อที่') and ':' in line:
+                # บันทึกข้อมูลข้อก่อนหน้า (ถ้ามี)
+                if current_question is not None and current_score is not None:
+                    question_scores.append({
+                        'question_number': current_question,
+                        'score': current_score,
+                        'feedback': '\n'.join(current_feedback)
+                    })
+                
+                # เริ่มข้อใหม่
+                try:
+                    current_question = int(line.split('ข้อที่')[1].split(':')[0].strip())
+                    current_feedback = []
+                except:
+                    current_question = len(question_scores) + 1
+            
+            # ตรวจจับคะแนนในแต่ละข้อ
+            elif 'คะแนน:' in line and current_question is not None:
+                try:
+                    score_text = line.replace('คะแนน:', '').strip().split('/')[0]
+                    current_score = float(score_text)
+                except:
+                    current_score = 0
+            
+            # เก็บข้อความประเมินสำหรับข้อนั้นๆ
+            elif current_question is not None and line and not line.startswith('### '):
+                current_feedback.append(line)
+        
+        # บันทึกข้อมูลข้อสุดท้าย (ถ้ามี)
+        if current_question is not None and current_score is not None:
+            question_scores.append({
+                'question_number': current_question,
+                'score': current_score,
+                'feedback': '\n'.join(current_feedback)
+            })
+        
+        return question_scores
+
+    def _extract_total_score(self, result_text):
+        """
+        แยกคะแนนรวมจากผลลัพธ์การประเมิน
+        
+        Args:
+            result_text: ข้อความผลลัพธ์
+            
+        Returns:
+            คะแนนรวมที่แยกได้
+        """
+        try:
+            # ค้นหาส่วนที่มีคะแนนรวม
+            if "คะแนนรวม:" in result_text:
+                total_score_line = [line for line in result_text.split('\n') if "คะแนนรวม:" in line][0]
+                # แยกคะแนนจากข้อความ "คะแนนรวม: XX/40"
+                score_parts = total_score_line.replace("คะแนนรวม:", "").strip().split('/')
+                return float(score_parts[0].strip()), float(score_parts[1].strip())
+            else:
+                # ถ้าไม่พบคะแนนรวมโดยตรง ให้คำนวณจากคะแนนแต่ละข้อ
+                question_scores = self._extract_question_scores(result_text)
+                total_score = sum(item['score'] for item in question_scores)
+                total_max_score = len(question_scores) * 10.0  # คะแนนเต็มข้อละ 10
+                return total_score, total_max_score
+        except Exception as e:
+            print(f"Error extracting total score: {str(e)}")
+            return 0.0, 0.0
