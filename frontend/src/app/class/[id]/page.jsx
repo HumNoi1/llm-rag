@@ -31,11 +31,6 @@ export default function ClassDetailPage() {
   const [isReasonModalOpen, setIsReasonModalOpen] = useState(false);
   const [selectedEvaluation, setSelectedEvaluation] = useState(null);
 
-  // เพิ่ม state สำหรับการแก้ไขคะแนน
-  const [editingScores, setEditingScores] = useState({});
-  const [editModeStudent, setEditModeStudent] = useState(null);
-  const [saveLoading, setSaveLoading] = useState(false);
-
   // สร้างฟังก์ชันสำหรับเปิดไฟล์นักเรียน
   const handleViewStudentFile = (fileUrl) => {
     if (fileUrl) {
@@ -102,7 +97,8 @@ export default function ClassDetailPage() {
             id: upload.id,
             questionId: upload.question_id,
             studentName: upload.student_answer_filename?.split('.')[0] || 'ไม่ระบุชื่อ',
-            score: upload.evaluation_result.score,
+            totalScore: upload.evaluation_result.total_score || 0,
+            maxScore: upload.evaluation_result.max_score || 20,
             evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH'),
             // เพิ่ม URL ไฟล์นักเรียน
             studentFileUrl: upload.student_answer_url || null
@@ -115,7 +111,9 @@ export default function ClassDetailPage() {
               questionId: upload.question_id,
               studentName: upload.student_answer_filename?.split('.')[0] || 'ไม่ระบุชื่อ',
               fileName: upload.student_answer_filename || 'ไม่ระบุชื่อไฟล์',
-              score: upload.evaluation_result.score,
+              scores: upload.evaluation_result.scores || [],
+              totalScore: upload.evaluation_result.total_score || 0,
+              maxScore: upload.evaluation_result.max_score || 20,
               // เพิ่มการดึงข้อมูลเหตุผลการให้คะแนน
               evaluation: upload.evaluation_result.evaluation || 'ไม่มีข้อมูลการประเมิน',
               evaluatedDate: new Date(upload.updated_at || upload.uploaded_at).toLocaleDateString('th-TH'),
@@ -126,16 +124,9 @@ export default function ClassDetailPage() {
             })) || [];
           
           // เรียงลำดับตามคะแนน (มากไปน้อย)
-          studentScoresList.sort((a, b) => b.score - a.score);
+          studentScoresList.sort((a, b) => b.totalScore - a.totalScore);
           
           setStudentScores(studentScoresList);
-
-          // เตรียมค่าเริ่มต้นสำหรับ editingScores
-          const initialEditingScores = {};
-          studentScoresList.forEach(student => {
-            initialEditingScores[student.id] = student.score;
-          });
-          setEditingScores(initialEditingScores);
           
           // ตั้งค่าสถานะการอนุมัติคะแนน
           const approvals = {};
@@ -208,130 +199,13 @@ export default function ClassDetailPage() {
   
   // จัดการเมื่อคลิกปุ่มดูเหตุผลการให้คะแนน
   const handleViewReason = (student) => {
-    setSelectedEvaluation(student);
-    setIsReasonModalOpen(true);
-  };
-
-  // เปิดโหมดแก้ไขคะแนน
-  const handleEditScore = (studentId) => {
-    setEditModeStudent(studentId);
-  };
-
-  // เปลี่ยนแปลงคะแนนด้วยปุ่ม +/-
-  const handleScoreChange = (studentId, change) => {
-    setEditingScores(prev => {
-      // คำนวณคะแนนใหม่
-      const newScore = Math.min(Math.max(prev[studentId] + change, 0), 10);
-      
-      return {
-        ...prev,
-        [studentId]: newScore
-      };
+    setSelectedEvaluation({
+      ...student,
+      scores: student.scores || [],
+      totalScore: student.totalScore || 0,
+      maxScore: student.maxScore || 20
     });
-  };
-
-  // จัดการเมื่อมีการเปลี่ยนแปลงคะแนนผ่าน input field
-  const handleScoreInputChange = (studentId, value) => {
-    const numValue = parseFloat(value);
-    
-    // ตรวจสอบว่าเป็นตัวเลขที่ถูกต้องและอยู่ในช่วง 0-10
-    if (!isNaN(numValue)) {
-      const validScore = Math.min(Math.max(numValue, 0), 10);
-      
-      setEditingScores(prev => ({
-        ...prev,
-        [studentId]: validScore
-      }));
-    }
-  };
-
-  // บันทึกคะแนนที่แก้ไข (ใช้ทั้งในหน้าตารางและ modal)
-  const handleSaveScore = async (studentId, newScore) => {
-    setSaveLoading(true);
-    
-    try {
-      // ค้นหาข้อมูล student จาก studentId
-      const student = studentScores.find(s => s.id === studentId);
-      if (!student) throw new Error('ไม่พบข้อมูลนักเรียน');
-      
-      // ใช้คะแนนจากพารามิเตอร์ถ้ามี มิฉะนั้นใช้จาก editingScores
-      const scoreToSave = newScore !== undefined ? newScore : editingScores[studentId];
-      
-      // สร้างข้อมูล evaluation_result ใหม่ที่จะอัปเดต
-      const newEvaluationResult = {
-        // คงค่าเดิมของ evaluation ไว้
-        evaluation: student.evaluation,
-        // อัปเดตค่า score ใหม่
-        score: scoreToSave
-      };
-      
-      // บันทึกลงฐานข้อมูล
-      const { error } = await supabase
-        .from('uploads')
-        .update({ 
-          evaluation_result: newEvaluationResult,
-          updated_at: new Date().toISOString() // อัปเดตเวลาที่แก้ไข
-        })
-        .eq('id', studentId);
-      
-      if (error) throw error;
-      
-      // อัปเดต UI ในส่วนของ studentScores
-      setStudentScores(prev => 
-        prev.map(s => {
-          if (s.id === studentId) {
-            return { ...s, score: scoreToSave, evaluatedDate: new Date().toLocaleDateString('th-TH') };
-          }
-          return s;
-        })
-      );
-      
-      // อัปเดต UI ในส่วนของ evaluatedAnswers
-      setEvaluatedAnswers(prev => 
-        prev.map(a => {
-          if (a.id === studentId) {
-            return { ...a, score: scoreToSave, evaluatedDate: new Date().toLocaleDateString('th-TH') };
-          }
-          return a;
-        })
-      );
-      
-      // อัปเดต selectedEvaluation ถ้ามีการแก้ไขคะแนนใน modal
-      if (selectedEvaluation && selectedEvaluation.id === studentId) {
-        setSelectedEvaluation(prev => ({
-          ...prev,
-          score: scoreToSave
-        }));
-      }
-      
-      // ออกจากโหมดแก้ไขในตาราง
-      setEditModeStudent(null);
-      
-      console.log('บันทึกคะแนนสำเร็จ');
-      return true;
-    } catch (error) {
-      console.error('Error saving score:', error);
-      setError('ไม่สามารถบันทึกคะแนนได้: ' + error.message);
-      return false;
-    } finally {
-      setSaveLoading(false);
-    }
-  };
-
-  // ยกเลิกการแก้ไขคะแนน
-  const handleCancelEdit = (studentId) => {
-    // ค้นหาคะแนนเดิมจาก studentScores
-    const student = studentScores.find(s => s.id === studentId);
-    if (student) {
-      // คืนค่าคะแนนเดิม
-      setEditingScores(prev => ({
-        ...prev,
-        [studentId]: student.score
-      }));
-    }
-    
-    // ออกจากโหมดแก้ไข
-    setEditModeStudent(null);
+    setIsReasonModalOpen(true);
   };
 
   return (
@@ -346,9 +220,9 @@ export default function ClassDetailPage() {
             onClose={() => setIsReasonModalOpen(false)}
             evaluation={selectedEvaluation.evaluation}
             studentName={selectedEvaluation.studentName}
-            score={selectedEvaluation.score}
-            studentId={selectedEvaluation.id} 
-            onSaveScore={handleSaveScore} // ส่งฟังก์ชันบันทึกคะแนนไปยัง modal
+            scores={selectedEvaluation.scores}
+            totalScore={selectedEvaluation.totalScore}
+            maxScore={selectedEvaluation.maxScore}
           />
         )}
           <>
@@ -413,7 +287,7 @@ export default function ClassDetailPage() {
                   <li>อัปโหลดไฟล์คำตอบของนักเรียน (PDF)</li>
                   <li>รอระบบประมวลผลและประเมินคำตอบ</li>
                   <li>ตรวจสอบผลการประเมิน</li>
-                  <li>ปรับแก้และบันทึกคะแนนเข้าสู่ระบบ</li>
+                  <li>บันทึกคะแนนเข้าสู่ระบบ</li>
                 </ol>
               </div>
               
@@ -502,11 +376,12 @@ export default function ClassDetailPage() {
                             <td className="px-6 py-4">{answer.studentName}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                answer.score >= 8 ? 'bg-green-100 text-green-800' : 
-                                answer.score >= 5 ? 'bg-yellow-100 text-yellow-800' : 
+                                (answer.totalScore / answer.maxScore) >= 0.8 ? 'bg-green-100 text-green-800' : 
+                                (answer.totalScore / answer.maxScore) >= 0.6 ? 'bg-blue-100 text-blue-800' : 
+                                (answer.totalScore / answer.maxScore) >= 0.4 ? 'bg-yellow-100 text-yellow-800' : 
                                 'bg-red-100 text-red-800'
                               }`}>
-                                {answer.score}/10
+                                {answer.totalScore}/{answer.maxScore}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">{answer.evaluatedDate}</td>
@@ -575,92 +450,24 @@ export default function ClassDetailPage() {
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {studentScores.map((student) => (
-                          <tr key={student.id} className={`hover:bg-gray-50 ${editModeStudent === student.id ? 'bg-blue-50' : ''}`}>
+                          <tr key={student.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">{student.questionId}</td>
                             <td className="px-6 py-4">{student.studentName}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.fileName}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {editModeStudent === student.id ? (
-                                <div className="flex items-center space-x-2">
-                                  <button 
-                                    onClick={() => handleScoreChange(student.id, -0.5)}
-                                    className="bg-red-100 hover:bg-red-200 text-red-600 w-8 h-8 rounded-full flex items-center justify-center"
-                                    title="ลดคะแนน 0.5"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                                    </svg>
-                                  </button>
-                                  
-                                  <input
-                                    type="number"
-                                    value={editingScores[student.id] || 0}
-                                    onChange={(e) => handleScoreInputChange(student.id, e.target.value)}
-                                    min="0"
-                                    max="10"
-                                    step="0.5"
-                                    className="w-16 px-2 py-1 border border-gray-300 rounded text-center"
-                                  />
-                                  
-                                  <button 
-                                    onClick={() => handleScoreChange(student.id, 0.5)}
-                                    className="bg-green-100 hover:bg-green-200 text-green-600 w-8 h-8 rounded-full flex items-center justify-center"
-                                    title="เพิ่มคะแนน 0.5"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                    </svg>
-                                  </button>
-                                  
-                                  <span className="text-gray-600">/10</span>
-                                  
-                                  <div className="ml-2 flex space-x-1">
-                                    <button
-                                      onClick={() => handleSaveScore(student.id)}
-                                      disabled={saveLoading}
-                                      className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs flex items-center"
-                                    >
-                                      {saveLoading ? (
-                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                        </svg>
-                                      ) : (
-                                        <>
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                          </svg>
-                                          บันทึก
-                                        </>
-                                      )}
-                                    </button>
-                                    <button
-                                      onClick={() => handleCancelEdit(student.id)}
-                                      className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs"
-                                    >
-                                      ยกเลิก
-                                    </button>
-                                  </div>
-                                </div>
+                              {student.error ? (
+                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                  เกิดข้อผิดพลาด
+                                </span>
                               ) : (
-                                <div className="flex items-center space-x-2">
-                                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    student.score >= 8 ? 'bg-green-100 text-green-800' : 
-                                    student.score >= 5 ? 'bg-yellow-100 text-yellow-800' : 
-                                    'bg-red-100 text-red-800'
-                                  }`}>
-                                    {student.score}/10
-                                  </span>
-                                  <button
-                                    onClick={() => handleEditScore(student.id)}
-                                    className="text-gray-500 hover:text-blue-600"
-                                    title="แก้ไขคะแนน"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
-                                  </button>
-                                </div>
+                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  (student.totalScore / student.maxScore) >= 0.8 ? 'bg-green-100 text-green-800' : 
+                                  (student.totalScore / student.maxScore) >= 0.6 ? 'bg-blue-100 text-blue-800' : 
+                                  (student.totalScore / student.maxScore) >= 0.4 ? 'bg-yellow-100 text-yellow-800' : 
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {student.totalScore}/{student.maxScore}
+                                </span>
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{student.uploadDate}</td>
@@ -687,9 +494,8 @@ export default function ClassDetailPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-center">
                               <button
                                 onClick={() => handleApproveScore(student.id, !approvedScores[student.id])}
-                                disabled={approvalLoading[student.id] || editModeStudent === student.id}
+                                disabled={approvalLoading[student.id]}
                                 className={`p-2 rounded-full focus:outline-none transition-colors ${
-                                  editModeStudent === student.id ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
                                   approvedScores[student.id] 
                                     ? 'bg-green-100 text-green-600 hover:bg-green-200' 
                                     : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -723,11 +529,12 @@ export default function ClassDetailPage() {
                     <button
                       onClick={() => {
                         // สร้างข้อมูล CSV และดาวน์โหลด
-                        const headers = ['รหัสคำถาม', 'ชื่อนักเรียน', 'คะแนน', 'วันที่ประเมิน', 'สถานะการอนุมัติ'];
+                        const headers = ['รหัสคำถาม', 'ชื่อนักเรียน', 'คะแนน', 'คะแนนเต็ม', 'วันที่ประเมิน', 'สถานะการอนุมัติ'];
                         const csvData = studentScores.map(student => [
                           student.questionId,
                           student.studentName,
-                          student.score,
+                          student.totalScore,
+                          student.maxScore,
                           student.evaluatedDate,
                           approvedScores[student.id] ? 'อนุมัติแล้ว' : 'ยังไม่อนุมัติ'
                         ]);

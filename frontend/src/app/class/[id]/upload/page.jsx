@@ -219,7 +219,7 @@ export default function UploadFilesPage() {
   };
 
   // ประเมินคำตอบหลายไฟล์
-  const evaluateAllAnswers = async (studentAnswerInfos) => {
+    const evaluateAllAnswers = async (studentAnswerInfos) => {
     const results = [];
     let fileIndex = 0;
     const totalFiles = studentAnswerInfos.length;
@@ -254,15 +254,28 @@ export default function UploadFilesPage() {
         }
         
         const result = await response.json();
-        results.push({
+        
+        // ตรวจสอบและแปลงข้อมูลให้รองรับทั้งรูปแบบเก่าและใหม่
+        const processedResult = {
           ...result,
+          // รองรับทั้งรูปแบบคะแนนแบบใหม่และแบบเก่า
+          scores: result.scores || [],
+          totalScore: result.total_score || result.score || 0,
+          maxScore: result.max_score || 10,
+          // เก็บข้อมูลเก่าไว้เพื่อความเข้ากันได้กับระบบเดิม
+          score: result.score || (result.total_score ? result.total_score / 2 : 0), // แปลงคะแนนใหม่เป็นเก่า (ถ้าจำเป็น)
           studentInfo: studentAnswerInfo
-        });
+        };
+        
+        results.push(processedResult);
       } catch (error) {
         console.error(`ไม่สามารถประเมินคำตอบไฟล์ ${studentAnswerInfo.originalName}: ${error.message}`);
         // สร้างผลประเมินจำลองในกรณีที่เกิดข้อผิดพลาด
         results.push({
           evaluation: `เกิดข้อผิดพลาดในการประเมิน: ${error.message}`,
+          scores: [],
+          totalScore: 0,
+          maxScore: 20,
           score: 0,
           subject_id: classId,
           question_id: questionId,
@@ -294,8 +307,12 @@ export default function UploadFilesPage() {
         uploaded_by: user.id,
         status: result.error ? 'error' : 'completed',
         evaluation_result: result.error ? null : {
-          score: result.score,
-          evaluation: result.evaluation
+          evaluation: result.evaluation,
+          scores: result.scores || [],
+          total_score: result.totalScore,
+          max_score: result.maxScore,
+          // เก็บคะแนนแบบเก่าไว้ด้วยเพื่อความเข้ากันได้
+          score: result.score || 0
         }
       };
       

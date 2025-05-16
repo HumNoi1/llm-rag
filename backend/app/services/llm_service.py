@@ -50,14 +50,14 @@ class LLMEvaluationService:
         """
         return """
         คุณเป็นผู้ช่วยอาจารย์ในการตรวจข้อสอบอัตนัยของนักศึกษาในวิชาแนวคิดวิศวกรรมซอฟต์แวร์
+        โปรดประเมินคำตอบของนักศึกษาโดยเปรียบเทียบกับเฉลยที่ระบบดึงมาจากฐานความรู้เท่านั้น  
+        **ห้ามอ้างอิงความรู้ของคุณเองหรือเสริมข้อมูลนอกเหนือจากเนื้อหาในเฉลย**
 
-        โปรดประเมินคำตอบของนักศึกษาโดยเปรียบเทียบกับเฉลยที่ระบบดึงมาจากฐานความรู้
-        ห้ามใช้ความรู้ของคุณเองนอกเหนือจากเนื้อหาในเฉลย
-
-        หากไม่มีข้อมูลเพียงพอในการประเมิน ให้ตอบว่า
-        "ไม่สามารถประเมินได้เนื่องจากไม่มีข้อมูลเฉลยเพียงพอ"
+        หากไม่มีข้อมูลเพียงพอในการประเมินในแต่ละประเด็น ให้ระบุว่า:  
+        **"ไม่สามารถประเมินได้เนื่องจากไม่มีข้อมูลเฉลยเพียงพอ"**
 
         ---
+
         ## คำถาม:
         {question}
 
@@ -66,29 +66,47 @@ class LLMEvaluationService:
 
         ## เฉลยอาจารย์:
         {answer_key}
+
         ---
 
-        โปรดประเมินคำตอบโดยให้คะแนนระหว่าง 0 ถึง 10 พร้อมคำอธิบาย
-        เริ่มต้นคำตอบด้วย:
+        โปรดประเมินคำตอบโดยแบ่งเป็น **4 ประเด็นสำคัญ** (หรือมากกว่านี้ถ้าเฉลยมีหลายหัวข้อย่อย)  
+        แต่ละประเด็นให้คะแนนเต็ม 5 คะแนน แล้ว **สรุปคะแนนรวม**
 
-        คะแนน: X/10
+        เริ่มต้นคำตอบของคุณด้วย:
 
-        จากนั้นแสดงการเปรียบเทียบในแต่ละประเด็นสำคัญดังนี้:
+        ---
 
-        1. ประเด็นที่ 1
-        คำตอบนักศึกษา: [ข้อความจากคำตอบนักศึกษาในประเด็นนี้]
-        เฉลยอาจารย์: [ข้อความจากเฉลยในประเด็นนี้]
-        การประเมิน: [อธิบายว่าคำตอบถูกต้องหรือไม่อย่างไร ระบุคีย์เวิร์ดสำคัญที่นักศึกษาตอบถูกหรือตอบขาดไป]
+        ## ผลการประเมินคะแนน:
+        1. ประเด็นที่ 1: [คะแนน]/5  
+        2. ประเด็นที่ 2: [คะแนน]/5  
+        3. ประเด็นที่ 3: [คะแนน]/5  
+        4. ประเด็นที่ 4: [คะแนน]/5  
+        **คะแนนรวม: [คะแนนรวม]/20**
 
-        2. ประเด็นที่ 2
-        คำตอบนักศึกษา: [ข้อความจากคำตอบนักศึกษาในประเด็นนี้]
-        เฉลยอาจารย์: [ข้อความจากเฉลยในประเด็นนี้]
-        การประเมิน: [อธิบายว่าคำตอบถูกต้องหรือไม่อย่างไร ระบุคีย์เวิร์ดสำคัญที่นักศึกษาตอบถูกหรือตอบขาดไป]
+        ---
 
-        [ทำเช่นนี้จนครบทุกประเด็นสำคัญ]
+        จากนั้นแสดงการวิเคราะห์ในแต่ละประเด็นดังนี้:
+
+        ## การวิเคราะห์คำตอบ:
+
+        1. **ประเด็นที่ 1**  
+        - คำตอบนักศึกษา: “[ข้อความจากคำตอบนักศึกษาในประเด็นนี้]”  
+        - เฉลยอาจารย์: “[ข้อความจากเฉลยในประเด็นนี้]”  
+        - การประเมิน: [อธิบายว่าคำตอบถูกต้องหรือไม่อย่างไร ระบุคีย์เวิร์ดสำคัญที่นักศึกษาตอบถูกหรือตอบขาดไป]  
+        - คะแนน: [คะแนน]/5 เนื่องจาก [ระบุเหตุผลสั้นกระชับ]
+
+        2. **ประเด็นที่ 2**  
+        - คำตอบนักศึกษา: “[...]”  
+        - เฉลยอาจารย์: “[...]”  
+        - การประเมิน: [...]  
+        - คะแนน: [...]/5 เนื่องจาก [...]
+
+        [ทำแบบเดียวกันจนจบทุกประเด็น]
+
+        ---
 
         ## สรุปเหตุผลการให้คะแนน:
-        [อธิบายโดยรวมว่าทำไมจึงให้คะแนนเท่านี้ ระบุจุดแข็งและจุดอ่อนหลักของคำตอบ]
+        [สรุปภาพรวมว่าทำไมจึงให้คะแนนระดับนั้น ระบุจุดแข็ง จุดอ่อน และคำแนะนำหากเหมาะสม]
         """
         
     def create_evaluation_graph(self):
@@ -204,30 +222,98 @@ class LLMEvaluationService:
             answer_key=answer_key_content
         )
     
-    def _extract_score_from_result(self, result_text, default_score=5.0):
+    def _extract_scores_from_result(self, result_text):
         """
         แยกคะแนนจากผลลัพธ์การประเมิน
         
         Args:
             result_text: ข้อความผลลัพธ์
-            default_score: คะแนนเริ่มต้นกรณีไม่พบคะแนน
             
         Returns:
-            คะแนนที่แยกได้
+            dict ที่มีคะแนนรายข้อและคะแนนรวม
         """
         try:
-            # ตรวจสอบบรรทัดแรกของผลลัพธ์
-            first_line = result_text.split("\n")[0]
+            # แยกประโยคที่มีคะแนน
+            lines = result_text.split('\n')
+            scores = []
+            total_score = 0
+            max_score = 0
             
-            if "คะแนน:" in first_line:
-                # แยกคะแนนจากข้อความ "คะแนน: X/10"
-                score_text = first_line.replace("คะแนน:", "").strip().split("/")[0]
-                return float(score_text)
+            # ค้นหาบรรทัดที่มีรูปแบบ "ประเด็นที่ X: [คะแนน]/5"
+            for line in lines:
+                if ':/5' in line and ('ประเด็นที่' in line or any(f"{i}." in line for i in range(1, 10))):
+                    try:
+                        # ดึงหมายเลขข้อ
+                        question_number = 0
+                        if 'ประเด็นที่' in line:
+                            parts = line.split('ประเด็นที่')
+                            if len(parts) > 1:
+                                # ดึงตัวเลขหลัง "ประเด็นที่"
+                                for c in parts[1]:
+                                    if c.isdigit():
+                                        question_number = int(c)
+                                        break
+                        else:
+                            # หาตัวเลขข้อจากรูปแบบ "1. ข้อความ"
+                            for i in range(1, 10):
+                                if f"{i}." in line:
+                                    question_number = i
+                                    break
+                        
+                        # ดึงคะแนน
+                        score_text = line.split(':')[1].strip().split('/')[0].strip()
+                        max_score_text = line.split('/')[1].strip()
+                        
+                        score = float(score_text)
+                        current_max_score = float(max_score_text)
+                        
+                        # หา feedback (ถ้ามี)
+                        feedback = ""
+                        index = lines.index(line)
+                        if index + 1 < len(lines) and 'เนื่องจาก' in lines[index + 1]:
+                            feedback = lines[index + 1].strip()
+                        
+                        scores.append({
+                            "question_number": question_number,
+                            "score": score,
+                            "max_score": current_max_score,
+                            "feedback": feedback
+                        })
+                        
+                        max_score += current_max_score
+                    except Exception as e:
+                        print(f"Error parsing score line: {line}, error: {str(e)}")
+                
+                # ค้นหาบรรทัดที่มีคะแนนรวม
+                if 'คะแนนรวม:' in line:
+                    try:
+                        total_text = line.split('คะแนนรวม:')[1].strip().split('/')[0].strip()
+                        total_score = float(total_text)
+                    except:
+                        # หากมีข้อผิดพลาด คำนวณคะแนนรวมเอง
+                        total_score = sum(item["score"] for item in scores)
+            
+            # ถ้าไม่พบคะแนนรวม คำนวณเอง
+            if total_score == 0:
+                total_score = sum(item["score"] for item in scores)
+            
+            # ถ้าไม่พบคะแนนเต็ม คำนวณเอง
+            if max_score == 0:
+                max_score = sum(item["max_score"] for item in scores)
+            
+            return {
+                "scores": scores,
+                "total_score": total_score,
+                "max_score": max_score
+            }
         except Exception as e:
-            print(f"Error extracting score: {str(e)}")
-        
-        # กรณีไม่สามารถแยกคะแนนได้ ใช้ค่าเริ่มต้น
-        return default_score
+            print(f"Error extracting scores: {str(e)}")
+            # กรณีมีข้อผิดพลาด ให้คืนค่าเริ่มต้น
+            return {
+                "scores": [{"question_number": 1, "score": 0, "max_score": 5, "feedback": ""}],
+                "total_score": 0,
+                "max_score": 5
+            }
     
     def evaluate_answer(self, question, student_answer, subject_id, question_id):
         """
@@ -249,4 +335,17 @@ class LLMEvaluationService:
             "subject_id": subject_id,
             "question_id": question_id
         }
-        return graph.invoke(initial_state)
+        
+        result = graph.invoke(initial_state)
+        
+        # แยกคะแนนจากผลการประเมิน
+        scores_data = self._extract_scores_from_result(result["evaluation"])
+        
+        # อัปเดต result ด้วยข้อมูลคะแนน
+        result.update({
+            "scores": scores_data["scores"],
+            "total_score": scores_data["total_score"],
+            "max_score": scores_data["max_score"]
+        })
+        
+        return result

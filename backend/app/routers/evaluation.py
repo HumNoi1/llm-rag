@@ -88,7 +88,9 @@ async def evaluate_answer(
     
     return EvaluationResponse(
         evaluation=result["evaluation"],
-        score=result["score"],
+        scores=result["scores"],
+        total_score=result["total_score"],
+        max_score=result["max_score"],
         subject_id=request.subject_id,
         question_id=request.question_id
     )
@@ -198,7 +200,9 @@ async def evaluate_from_storage(
             
             return EvaluationResponse(
                 evaluation=result["evaluation"],
-                score=result["score"],
+                scores=result.get("scores", []),
+                total_score=result.get("total_score", 0.0),
+                max_score=result.get("max_score", 20.0),
                 subject_id=request.subject_id,
                 question_id=request.question_id
             )
