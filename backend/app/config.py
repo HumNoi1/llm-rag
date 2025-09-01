@@ -9,7 +9,7 @@ load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # โมเดลจาก Groq ที่จะใช้ (เช่น llama2-70b-4096, mixtral-8x7b-32768, gemma-7b-it)
-GROQ_MODEL_NAME = os.getenv("GROQ_MODEL_NAME", "llama2-70b-4096")
+GROQ_MODEL_NAME = os.getenv("GROQ_MODEL_NAME", "qwen/qwen3-32b")
 
 # ชื่อโมเดล Embedding จาก Hugging Face
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
