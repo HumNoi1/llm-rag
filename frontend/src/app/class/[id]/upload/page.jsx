@@ -460,7 +460,7 @@ export default function UploadFilesPage() {
         
         <div className="mb-4 flex items-center">
           <div className="bg-blue-100 rounded-full h-20 w-20 flex items-center justify-center mr-4">
-            <span className="text-blue-700 text-xl font-bold">{avgScore.toFixed(1)}/10</span>
+            <span className="text-blue-700 text-xl font-bold">{avgScore.toFixed(1)}/40</span>
           </div>
           <div>
             <h4 className="text-md font-semibold text-[#333333]">คะแนนเฉลี่ย</h4>
