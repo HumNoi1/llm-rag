@@ -139,6 +139,25 @@ class AnswerEvaluationService:
         # แบ่งเอกสารและบันทึกลง ChromaDB
         return self._split_and_store_documents(documents, subject_id, question_id)
     
+    def index_answer_key_text(self, text_content, subject_id, question_id):
+        """
+        เก็บเอกสารเฉลยในฐานข้อมูล ChromaDB จาก text โดยตรง
+        
+        Args:
+            text_content: เนื้อหาของเฉลย (text)
+            subject_id: รหัสวิชา
+            question_id: รหัสคำถาม
+            
+        Returns:
+            จำนวนชิ้นส่วนที่แบ่งได้
+        """
+        # สร้าง metadata และเอกสาร
+        metadata = self._create_answer_metadata(subject_id, question_id)
+        documents = [Document(page_content=text_content, metadata={**metadata, "source": f"answer_key_{question_id}.txt"})]
+        
+        # แบ่งเอกสารและบันทึกลง ChromaDB
+        return self._split_and_store_documents(documents, subject_id, question_id)
+    
     def _validate_pdf_file(self, file_name):
         """
         ตรวจสอบว่าไฟล์เป็น PDF หรือไม่
