@@ -1,0 +1,1 @@
+{"indexed_fields":{"doc_id":"keyword"},"indexed_types":{"doc_id":[{"index_type":"keyword_index","mutability":"mutable","storage_type":"gridstore"},{"index_type":"null_index","mutability":"mutable","storage_type":{"mmap":{"is_on_disk":false}}}]},"skip_rocksdb":true}

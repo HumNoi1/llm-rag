@@ -4,269 +4,150 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Modal แสดงเหตุผลการให้คะแนนของ LLM
+ * Modal แสดงเหตุผลการให้คะแนนแบบ Structured JSON หรือ Legacy Text
  */
 export default function EvaluationReasonModal({ isOpen, onClose, evaluation, studentName, score }) {
   const modalRef = useRef(null);
 
-  // จัดการการคลิกนอก modal เพื่อปิด modal
   useEffect(() => {
     function handleClickOutside(event) {
       if (modalRef.current && !modalRef.current.contains(event.target)) {
         onClose();
       }
     }
-    
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, onClose]);
 
-  // ฟังก์ชันสำหรับแปลงข้อความให้เป็น HTML
-  const formatEvaluation = (text) => {
-    if (!text) return { scoreText: '', detailsHtml: '' };
-    
-    // แยกคะแนนออกจากรายละเอียด
-    const lines = text.split('\n');
-    let totalScoreText = '';
-    let scorePerQuestionText = '';
-    let detailLines = [];
-    let summaryLines = [];
-    
-    // หาบรรทัดที่มีคะแนน
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes('คะแนนเต็ม:')) {
-        totalScoreText = lines[i].trim();
-        if (i + 1 < lines.length && lines[i + 1].includes('ข้อล่ะ')) {
-          scorePerQuestionText = lines[i + 1].trim();
-          detailLines = lines.slice(i + 2);
-        } else {
-          detailLines = lines.slice(i + 1);
-        }
-        break;
-      }
-    }
-    
-    // แยกส่วนสรุป
-    const summaryIndex = detailLines.findIndex(line => 
-      line.includes('สรุปเหตุผลการให้คะแนน') || 
-      line.includes('สรุปเหตุผล')
-    );
-    
-    if (summaryIndex !== -1) {
-      summaryLines = detailLines.slice(summaryIndex);
-      detailLines = detailLines.slice(0, summaryIndex);
-    }
-    
-    // แปลงเป็น HTML
-    let detailsHtml = '';
-    let currentPoint = 0;
-    let inSubSection = false;
-    let sectionType = ''; // คำตอบนักศึกษา, เฉลยอาจารย์, การประเมิน, คะแนน
-    
-    for (let i = 0; i < detailLines.length; i++) {
-      const line = detailLines[i].trim();
-      if (!line) continue; // ข้ามบรรทัดว่าง
-      
-      // ตรวจจับประเด็นหลัก (1., 2., 3. ฯลฯ) ที่เป็นข้อที่
-      if (line.match(/^\d+\.\s/) && line.toLowerCase().includes('ข้อที่')) {
-        // ปิดส่วนย่อยก่อนหน้าถ้ามี
-        if (inSubSection) {
-          detailsHtml += '</div>';
-          inSubSection = false;
-        }
-        
-        currentPoint++;
-        detailsHtml += `
-          <div class="mt-4 border border-gray-200 rounded-lg overflow-hidden">
-            <div class="bg-gray-50 p-2 font-medium text-gray-700 border-b border-gray-200">
-              ${line}
-            </div>
-            <div class="p-3">
-        `;
-        inSubSection = true;
-      }
-      // ตรวจจับข้อที่ไม่มีคำว่า "ข้อที่" (1., 2., 3. ฯลฯ)
-      else if (line.match(/^\d+\.\s/) && !line.toLowerCase().includes('ประเด็นที่')) {
-        // ปิดส่วนย่อยก่อนหน้าถ้ามี
-        if (inSubSection) {
-          detailsHtml += '</div>';
-          inSubSection = false;
-        }
-        
-        currentPoint++;
-        detailsHtml += `
-          <div class="mt-4 border border-gray-200 rounded-lg overflow-hidden">
-            <div class="bg-gray-50 p-2 font-medium text-gray-700 border-b border-gray-200">
-              ${line}
-            </div>
-            <div class="p-3">
-        `;
-        inSubSection = true;
-      }
-      // ตรวจจับ "คำตอบนักศึกษา:"
-      else if (line.startsWith('คำตอบนักศึกษา:')) {
-        const content = line.substring('คำตอบนักศึกษา:'.length).trim();
-        detailsHtml += `
-          <div class="mb-2 bg-blue-50 p-2 rounded border border-blue-100">
-            <span class="font-medium text-blue-700">คำตอบนักศึกษา:</span>
-            <span class="text-gray-800"> ${content}</span>
-          </div>
-        `;
-        sectionType = 'student';
-      }
-      // ตรวจจับ "เฉลยอาจารย์:"
-      else if (line.startsWith('เฉลยอาจารย์:')) {
-        const content = line.substring('เฉลยอาจารย์:'.length).trim();
-        detailsHtml += `
-          <div class="mb-2 bg-green-50 p-2 rounded border border-green-100">
-            <span class="font-medium text-green-700">เฉลยอาจารย์:</span>
-            <span class="text-gray-800"> ${content}</span>
-          </div>
-        `;
-        sectionType = 'solution';
-      }
-      // ตรวจจับ "การประเมิน:"
-      else if (line.startsWith('การประเมิน:')) {
-        const content = line.substring('การประเมิน:'.length).trim();
-        detailsHtml += `
-          <div class="mb-2 bg-purple-50 p-2 rounded border border-purple-100">
-            <span class="font-medium text-purple-700">การประเมิน:</span>
-            <span class="text-gray-800"> ${content}</span>
-          </div>
-        `;
-        sectionType = 'evaluation';
-      }
-      // ตรวจจับ "คะแนน:"
-      else if (line.startsWith('คะแนน:')) {
-        const content = line.substring('คะแนน:'.length).trim();
-        detailsHtml += `
-          <div class="mt-2 mb-2 bg-yellow-50 p-2 rounded border border-yellow-100">
-            <span class="font-medium text-yellow-700">คะแนน:</span>
-            <span class="text-gray-800 font-bold"> ${content}</span>
-          </div>
-        `;
-        sectionType = 'score';
-      }
-      // หัวข้อที่ขึ้นต้นด้วย ## (เช่น ## สรุปเหตุผลการให้คะแนน:)
-      else if (line.startsWith('##')) {
-        // ปิดส่วนย่อยก่อนหน้าถ้ามี
-        if (inSubSection) {
-          detailsHtml += '</div></div>';
-          inSubSection = false;
-        }
-        
-        const title = line.substring(2).trim();
-        detailsHtml += `<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-3 pb-1 border-b border-gray-200">${title}</h2>`;
-      }
-      // ข้อความปกติ
-      else {
-        detailsHtml += `<p class="my-1">${line}</p>`;
-      }
-    }
-    
-    // ปิด section ที่ยังค้างอยู่
-    if (inSubSection) {
-      detailsHtml += '</div></div>';
-    }
-    
-    // เพิ่มส่วนสรุป
-    if (summaryLines.length > 0) {
-      detailsHtml += `
-        <div class="mt-6 pt-3 border-t border-gray-200">
-          <h2 class="text-lg font-semibold text-gray-800 mb-3 pb-1">สรุปเหตุผลการให้คะแนน</h2>
-          <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-      `;
-      
-      for (const line of summaryLines) {
-        if (line.trim() && !line.includes('สรุปเหตุผลการให้คะแนน')) {
-          detailsHtml += `<p class="mb-2">${line}</p>`;
-        }
-      }
-      
-      detailsHtml += `</div></div>`;
-    }
-    
-    return { 
-      totalScoreText, 
-      scorePerQuestionText,
-      detailsHtml 
-    };
-  };
-  
-  const { totalScoreText, scorePerQuestionText, detailsHtml } = formatEvaluation(evaluation);
-  
   if (!isOpen) return null;
-  
+
+  // ตรวจสอบว่า evaluation เป็น JSON หรือไม่
+  let data = null;
+  if (typeof evaluation === 'object' && evaluation !== null) {
+    data = evaluation;
+  } else if (typeof evaluation === 'string') {
+    try {
+      data = JSON.parse(evaluation);
+    } catch (e) {
+      // ถ้าไม่ใช่ JSON ให้ใช้การแสดงผลแบบเก่า (Legacy Text)
+      data = null;
+    }
+  }
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm bg-white/30 p-4">
+    <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm bg-black/40 p-4">
       <div 
         ref={modalRef}
-        className="bg-white/95 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col border border-gray-200"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-100"
       >
-        {/* ส่วนหัว */}
-        <div className="bg-blue-600/90 text-white p-4 flex items-center justify-between backdrop-filter backdrop-blur-sm">
-          <h2 className="text-lg font-semibold flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            เหตุผลการให้คะแนน - {studentName || 'ไม่ระบุชื่อ'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-blue-700 rounded-full p-1 transition-colors"
-          >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-5 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-white/20 rounded-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">ผลการประเมินโดย AI</h2>
+              <p className="text-blue-100 text-sm">นักศึกษา: {studentName || 'ไม่ระบุชื่อ'}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="hover:bg-white/20 rounded-full p-2 transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
         
-        {/* ส่วนแสดงคะแนน */}
-        <div className="p-4 border-b flex items-center bg-gray-50/80">
-          <div className={`rounded-full h-16 w-16 flex items-center justify-center mr-4 ${
-            (score/40 >= 0.8) ? 'bg-green-100 text-green-800' : 
-            (score/40 >= 0.5) ? 'bg-yellow-100 text-yellow-800' : 
-            'bg-red-100 text-red-800'
-          }`}>
-            <span className="text-xl font-bold">{score}/40</span>
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-lg">{totalScoreText || `คะแนนเต็ม: ${score}/40`}</h3>
-            <p className="text-gray-600 text-sm">{scorePerQuestionText || 'ข้อล่ะ 10 คะแนน'}</p>
-            <p className="text-gray-600 text-sm">ประเมินโดย AI ตามเกณฑ์การให้คะแนนวิชาแนวคิดวิศวกรรมซอฟต์แวร์</p>
-          </div>
-        </div>
-        
-        {/* ส่วนรายละเอียดการประเมิน */}
-        <div className="p-6 overflow-y-auto bg-white/90">
-          {detailsHtml ? (
-            <div className="evaluation-details">
-              <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: detailsHtml }} />
-              
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <h4 className="text-sm font-medium text-gray-500 mb-2">การประเมินโดย AI:</h4>
-                <p className="text-sm text-gray-600">ผลการประเมินนี้เปรียบเทียบคำตอบของนักศึกษากับเฉลยอย่างละเอียด</p>
+        <div className="overflow-y-auto p-6 space-y-8 bg-gray-50/50">
+          {data ? (
+            /* Structured JSON Display */
+            <>
+              {/* Score Summary Card */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                  <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">คะแนนรวม</span>
+                  <div className="text-4xl font-black text-indigo-600">{data.total_score}<span className="text-xl text-gray-400">/40</span></div>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                  <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">คะแนนเฉลี่ย</span>
+                  <div className="text-4xl font-black text-emerald-600">{data.normalized_score}<span className="text-xl text-gray-400">/10</span></div>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center md:col-span-1">
+                   <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">สรุปภาพรวม</span>
+                   <p className="text-sm font-medium text-gray-700">{data.evaluation_text}</p>
+                </div>
               </div>
-            </div>
+
+              {/* Score Details - Categorized */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                  <span className="w-1.5 h-6 bg-indigo-500 rounded-full mr-3"></span>
+                  รายละเอียดคะแนนรายหมวด
+                </h3>
+                <div className="grid grid-cols-1 gap-3">
+                  {data.details?.map((item, idx) => (
+                    <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-indigo-200 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-bold text-gray-800">{item.criteria}</span>
+                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100">
+                          {item.score} / {item.max_score || 2.0}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 italic leading-relaxed">{item.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Correct & Missing Points */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-emerald-700 flex items-center uppercase tracking-wide">
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
+                    จุดที่ทำได้ดี
+                  </h3>
+                  <ul className="space-y-2">
+                    {data.correct_points?.map((p, i) => (
+                      <li key={i} className="text-sm bg-emerald-50 text-emerald-800 p-3 rounded-lg border border-emerald-100 flex items-start">
+                        <span className="mr-2">•</span> {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-rose-700 flex items-center uppercase tracking-wide">
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"></path></svg>
+                    สิ่งที่ต้องปรับปรุง
+                  </h3>
+                  <ul className="space-y-2">
+                    {data.missing_points?.map((p, i) => (
+                      <li key={i} className="text-sm bg-rose-50 text-rose-800 p-3 rounded-lg border border-rose-100 flex items-start">
+                        <span className="mr-2">•</span> {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              <p>ไม่พบรายละเอียดการประเมิน</p>
+            /* Legacy Text Display fallback */
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+              <pre className="whitespace-pre-wrap font-sans text-gray-700 leading-relaxed text-sm">
+                {evaluation}
+              </pre>
             </div>
           )}
         </div>
         
-        {/* ส่วนปุ่มด้านล่าง */}
-        <div className="p-4 border-t flex justify-end">
+        {/* Footer */}
+        <div className="p-4 border-t bg-white flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+            className="px-6 py-2 bg-gray-900 text-white font-bold rounded-lg hover:bg-gray-800 transition-all shadow-md"
           >
-            ปิด
+            ปิดหน้าต่าง
           </button>
         </div>
       </div>

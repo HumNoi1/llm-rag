@@ -1,12 +1,11 @@
 fastapi==0.115.11
-chromadb==0.6.3
-langchain==0.3.20
-langchain-community==0.3.19
-langchain-chroma
-langchain-huggingface==0.1.2
-langchain-openai==0.3.8
-langchain-groq==0.2.5
-langgraph==0.3.27
+uvicorn==0.34.0
+llama-index==0.12.23
+llama-index-vector-stores-qdrant==0.4.1
+llama-index-llms-groq==0.3.1
+llama-index-embeddings-huggingface==0.5.1
+llama-index-readers-file==0.4.3
+qdrant-client==1.13.2
 supabase==2.13.0
 PyMuPDF==1.25.4
 sentence-transformers==3.4.1
@@ -15,3 +14,4 @@ pandas==2.2.3
 matplotlib==3.10.1
 python-dotenv==1.1.0
 requests==2.32.3
+pydantic-settings==2.8.1
