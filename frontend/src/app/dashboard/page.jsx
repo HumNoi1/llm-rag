@@ -13,7 +13,7 @@ export default function Dashboard() {
   // ใช้ auth context
   const { user, logout } = useAuth();
   const router = useRouter();
-  
+
   // สร้าง state สำหรับเก็บข้อมูลรายวิชา
   const [classes, setClasses] = useState([]);
   const [error, setError] = useState(null);
@@ -26,10 +26,10 @@ export default function Dashboard() {
   // ฟังก์ชันดึงข้อมูลรายวิชา
   const fetchClasses = async () => {
     if (!user) return;
-    
+
     try {
       setError(null);
-      
+
       // ดึงข้อมูลจากตาราง classes
       const { data, error } = await supabase
         .from('classes')
@@ -80,10 +80,10 @@ export default function Dashboard() {
   // ฟังก์ชันสำหรับลบรายวิชา
   const deleteClass = async () => {
     if (!classToDelete) return;
-    
+
     try {
       setIsDeleting(true);
-      
+
       // ลบข้อมูลจากตาราง classes
       const { error } = await supabase
         .from('classes')
@@ -96,7 +96,7 @@ export default function Dashboard() {
 
       // อัปเดต state หลังจากลบข้อมูลสำเร็จ
       setClasses(prevClasses => prevClasses.filter(c => c.id !== classToDelete.id));
-      
+
       // แสดงข้อความสำเร็จ (เพิ่มฟีเจอร์นี้ในอนาคต)
       console.log('ลบรายวิชาสำเร็จ');
     } catch (error) {
@@ -133,7 +133,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#F3F4F6]">
-      <Header user={user} onLogout={handleLogout} />
+      <Header />
 
       <main className="container mx-auto p-4 md:p-6">
         {error ? (
@@ -169,8 +169,8 @@ export default function Dashboard() {
             <div className="mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-black">รายวิชาของฉัน</h2>
-                <Link 
-                  href="/class/create" 
+                <Link
+                  href="/class/create"
                   className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
                 >
                   + เพิ่มวิชาใหม่
@@ -183,10 +183,10 @@ export default function Dashboard() {
                     {classes.map(classItem => (
                       <ClassCardWithDelete key={classItem.id} classItem={classItem} />
                     ))}
-                    
+
                     {/* การ์ดเพิ่มรายวิชาใหม่ */}
-                    <Link 
-                      href="/class/create" 
+                    <Link
+                      href="/class/create"
                       className="flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 hover:bg-gray-100 transition"
                     >
                       <div className="text-center">
@@ -204,11 +204,11 @@ export default function Dashboard() {
                     <div className="col-span-3 text-center py-8">
                       <p className="text-gray-500">ยังไม่มีรายวิชา</p>
                     </div>
-                    
+
                     {/* การ์ดเพิ่มรายวิชาใหม่สำหรับกรณีไม่มีรายวิชา */}
                     <div className="col-span-3 flex justify-center">
-                      <Link 
-                        href="/class/create" 
+                      <Link
+                        href="/class/create"
                         className="flex items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 hover:bg-gray-100 transition max-w-xs w-full"
                       >
                         <div className="text-center">
@@ -228,7 +228,7 @@ export default function Dashboard() {
           </>
         )}
       </main>
-      
+
       {/* Modal ยืนยันการลบรายวิชา */}
       {deleteConfirmOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

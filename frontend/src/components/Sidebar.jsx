@@ -2,12 +2,15 @@
 "use client";
 
 import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
-  
+  const router = useRouter();
+  const { logout } = useAuth();
+
   // เมนูหลักของ Sidebar
   const mainMenuItems = [
     {
@@ -56,7 +59,7 @@ export default function Sidebar({ isOpen, onClose }) {
       )
     }
   ];
-  
+
   // เมนูตั้งค่าและอื่นๆ
   const bottomMenuItems = [
     {
@@ -79,22 +82,21 @@ export default function Sidebar({ isOpen, onClose }) {
       )
     }
   ];
-  
+
   return (
     <>
       {/* Overlay สำหรับ mobile */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden" 
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
           onClick={onClose}
         />
       )}
-      
+
       {/* Sidebar */}
-      <div 
-        className={`fixed top-0 left-0 h-full bg-white shadow-lg z-40 transform transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0 md:static md:h-auto`}
+      <div
+        className={`fixed top-0 left-0 h-full bg-white shadow-lg z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'
+          } md:translate-x-0 md:static md:h-auto`}
       >
         <div className="flex flex-col h-full w-64 py-4">
           {/* Logo และชื่อระบบ */}
@@ -106,17 +108,17 @@ export default function Sidebar({ isOpen, onClose }) {
               <span className="ml-2 text-lg font-medium">ระบบตรวจข้อสอบอัตนัย</span>
             </Link>
           </div>
-          
+
           {/* ปุ่มปิด Sidebar บน Mobile */}
-          <button 
-            className="absolute top-4 right-4 md:hidden" 
+          <button
+            className="absolute top-4 right-4 md:hidden"
             onClick={onClose}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          
+
           {/* เมนูหลัก */}
           <nav className="flex-1 px-4 mt-6 space-y-1">
             <h3 className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -126,50 +128,49 @@ export default function Sidebar({ isOpen, onClose }) {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md group ${
-                  pathname === item.href 
-                    ? 'bg-blue-100 text-blue-700' 
+                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md group ${pathname === item.href
+                    ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                  }`}
               >
-                <div className={`mr-3 ${
-                  pathname === item.href ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-600'
-                }`}>
+                <div className={`mr-3 ${pathname === item.href ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-600'
+                  }`}>
                   {item.icon}
                 </div>
                 {item.name}
               </Link>
             ))}
           </nav>
-          
+
           {/* เส้นคั่น */}
           <div className="border-t border-gray-200 mx-4"></div>
-          
+
           {/* เมนูล่าง */}
           <nav className="px-4 mt-6 mb-8 space-y-1">
             {bottomMenuItems.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md group ${
-                  pathname === item.href 
-                    ? 'bg-blue-100 text-blue-700' 
+                className={`flex items-center px-2 py-2 text-sm font-medium rounded-md group ${pathname === item.href
+                    ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                  }`}
               >
-                <div className={`mr-3 ${
-                  pathname === item.href ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-600'
-                }`}>
+                <div className={`mr-3 ${pathname === item.href ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-600'
+                  }`}>
                   {item.icon}
                 </div>
                 {item.name}
               </Link>
             ))}
-            
+
             {/* ปุ่มออกจากระบบ */}
             <button
               className="flex items-center px-2 py-2 mt-4 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 w-full"
-              onClick={() => console.log('ออกจากระบบ')}
+              onClick={async () => {
+                await logout();
+                router.push('/login');
+              }}
             >
               <div className="mr-3 text-red-500">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

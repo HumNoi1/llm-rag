@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from 'react';
+import { validateFile } from '../lib/fileValidator';
 
 export default function MultipleFileUploader({
   onFilesChange,
@@ -17,41 +18,20 @@ export default function MultipleFileUploader({
   const [files, setFiles] = useState([]);
   const [error, setError] = useState("");
 
-  // ฟังก์ชันตรวจสอบไฟล์
-  const validateFile = (file) => {
-    if (!file) {
-      return { valid: false, error: "กรุณาเลือกไฟล์" };
-    }
-    
-    // ตรวจสอบประเภทไฟล์ PDF
-    if (fileCategory === "PDF" && file.type !== "application/pdf") {
-      return { valid: false, error: "กรุณาอัปโหลดไฟล์ PDF เท่านั้น" };
-    }
-    
-    // ตรวจสอบขนาดไฟล์ (ไม่เกิน 10MB)
-    const maxSizeBytes = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSizeBytes) {
-      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      return { valid: false, error: `ไฟล์มีขนาดใหญ่เกินไป (${fileSizeMB} MB, ขนาดสูงสุด 10MB)` };
-    }
-    
-    return { valid: true };
-  };
-
   const handleFilesChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
-    
+
     if (selectedFiles.length === 0) {
       setFiles([]);
       setError("");
       onFilesChange && onFilesChange([], "");
       return;
     }
-    
+
     // ตรวจสอบไฟล์ทั้งหมด
     const validFiles = [];
     let errorMsg = "";
-    
+
     for (const file of selectedFiles) {
       const validation = validateFile(file);
       if (validation.valid) {
@@ -61,7 +41,7 @@ export default function MultipleFileUploader({
         break;
       }
     }
-    
+
     if (errorMsg) {
       setFiles([]);
       setError(errorMsg);
@@ -72,7 +52,7 @@ export default function MultipleFileUploader({
       onFilesChange && onFilesChange(validFiles, "");
     }
   };
-  
+
   return (
     <div className="mb-4">
       <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
@@ -101,7 +81,7 @@ export default function MultipleFileUploader({
           />
         </label>
       </div>
-      
+
       {files.length > 0 && (
         <div className="mt-2">
           <p className="text-sm font-medium text-gray-700 mb-1">ไฟล์ที่เลือก ({files.length}):</p>
@@ -120,7 +100,7 @@ export default function MultipleFileUploader({
           </ul>
         </div>
       )}
-      
+
       {error && (
         <p className="mt-1 text-sm text-red-600">{error}</p>
       )}

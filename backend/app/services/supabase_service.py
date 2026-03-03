@@ -1,28 +1,20 @@
 # backend/app/services/supabase_service.py
-import os
-import tempfile
 import requests
 from fastapi import HTTPException
-from dotenv import load_dotenv
 from supabase import create_client, Client
 from typing import Optional, Dict, Any, Tuple
-
-# โหลด environment variables
-load_dotenv()
+from ..config import SUPABASE_URL, SUPABASE_KEY
 
 class SupabaseService:
     """Service สำหรับติดต่อกับ Supabase"""
-    
+
     def __init__(self):
         """เริ่มต้น Supabase Client"""
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_KEY")
-        
-        if not supabase_url or not supabase_key:
+        if not SUPABASE_URL or not SUPABASE_KEY:
             print("⚠️ ไม่พบ SUPABASE_URL หรือ SUPABASE_KEY - เชื่อมต่อกับ Supabase ไม่ได้")
             self.supabase = None
         else:
-            self.supabase = create_client(supabase_url, supabase_key)
+            self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     
     async def download_file_from_url(self, url: str) -> Tuple[bytes, str]:
         """

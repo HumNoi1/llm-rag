@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from 'react';
+import { validateFile } from '../lib/fileValidator';
 
 /**
  * คอมโพเนนต์สำหรับอัปโหลดไฟล์
@@ -20,51 +21,29 @@ export default function FileUploader({
   const [file, setFile] = useState(null);
   const [error, setError] = useState("");
 
-  // ฟังก์ชันตรวจสอบไฟล์ (ฝังอยู่ในคอมโพเนนต์แทนการ import)
-  const validateFile = (file) => {
-    if (!file) {
-      return { valid: false, error: "กรุณาเลือกไฟล์" };
-    }
-    
-    // ตรวจสอบประเภทไฟล์ PDF
-    if (fileCategory === "PDF" && file.type !== "application/pdf") {
-      return { valid: false, error: "กรุณาอัปโหลดไฟล์ PDF เท่านั้น" };
-    }
-    
-    // ตรวจสอบขนาดไฟล์ (ไม่เกิน 10MB)
-    const maxSizeBytes = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSizeBytes) {
-      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      return { valid: false, error: `ไฟล์มีขนาดใหญ่เกินไป (${fileSizeMB} MB, ขนาดสูงสุด 10MB)` };
-    }
-    
-    return { valid: true };
-  };
-
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    
+
     if (!selectedFile) {
       setFile(null);
-      setError("");
-      onFileChange && onFileChange(null, "");
+      setError('');
+      onFileChange && onFileChange(null, '');
       return;
     }
-    
-    // ตรวจสอบไฟล์
+
     const validation = validateFile(selectedFile);
-    
     if (validation.valid) {
       setFile(selectedFile);
-      setError("");
-      onFileChange && onFileChange(selectedFile, "");
+      setError('');
+      onFileChange && onFileChange(selectedFile, '');
     } else {
       setFile(null);
       setError(validation.error);
       onFileChange && onFileChange(null, validation.error);
     }
   };
-  
+
+
   return (
     <div className="mb-4">
       <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
@@ -92,7 +71,7 @@ export default function FileUploader({
           />
         </label>
       </div>
-      
+
       {file && (
         <div className="mt-2 flex items-center text-sm text-gray-700">
           <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -101,7 +80,7 @@ export default function FileUploader({
           <span>{file.name}</span>
         </div>
       )}
-      
+
       {error && (
         <p className="mt-1 text-sm text-red-600">{error}</p>
       )}

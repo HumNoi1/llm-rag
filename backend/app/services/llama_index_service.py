@@ -29,7 +29,7 @@ class LlamaIndexService:
         self.qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
         try:
             self.supabase_service = SupabaseService()
-        except:
+        except Exception:
             self.supabase_service = None
 
     def _setup_settings(self):
@@ -47,7 +47,7 @@ class LlamaIndexService:
         try:
             collections = self.qdrant_client.get_collections().collections
             return any(c.name == collection_name for c in collections)
-        except:
+        except Exception:
             return False
 
     async def index_pdf_content(self, file_content: bytes, file_name: str, subject_id: str, question_id: str, force_reindex: bool = False):
@@ -86,7 +86,7 @@ class LlamaIndexService:
         """ประเมินคำตอบและส่งคืนผลลัพธ์แบบ Structured JSON"""
         collection_name = f"subject_{subject_id}_q_{question_id}"
         if not self._collection_exists(collection_name):
-            raise Exception("ไม่พบข้อมูลเฉลย")
+            raise ValueError("ไม่พบข้อมูลเฉลย กรุณาอัปโหลดไฟล์เฉลยก่อน")
 
         vector_store = self._get_vector_store(collection_name)
         index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
@@ -96,6 +96,53 @@ class LlamaIndexService:
         response = query_engine.query(prompt)
         
         return self._parse_json_response(str(response))
+
+    async def evaluate_answer_from_storage(
+        self,
+        subject_id: str,
+        question_id: str,
+        answer_key_url: str,
+        student_answer_url: str,
+        supabase_service: "SupabaseService"
+    ) -> dict:
+        """ดาวน์โหลดไฟล์จาก Storage, แยกข้อความ PDF และประเมินคำตอบ"""
+        import tempfile
+        import fitz
+
+        # ตรวจสอบและ index เฉลยถ้ายังไม่มี
+        collection_name = f"subject_{subject_id}_q_{question_id}"
+        if not self._collection_exists(collection_name):
+            answer_key_content, answer_key_filename = await supabase_service.download_file_from_url(answer_key_url)
+            await self.index_pdf_content(
+                file_content=answer_key_content,
+                file_name=answer_key_filename,
+                subject_id=subject_id,
+                question_id=question_id
+            )
+
+        # ดาวน์โหลดและแยกข้อความจากไฟล์คำตอบนักเรียน
+        student_answer_content, _ = await supabase_service.download_file_from_url(student_answer_url)
+        student_text = ""
+        temp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", mode="wb") as temp_file:
+                temp_file.write(student_answer_content)
+                temp_path = temp_file.name
+            with fitz.open(temp_path) as doc:
+                for page in doc:
+                    student_text += page.get_text()
+        except fitz.FileDataError as e:
+            raise ValueError(f"ไม่สามารถอ่านไฟล์ PDF ของนักเรียนได้: {e}")
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+        return await self.evaluate_answer(
+            question="จงตรวจคำตอบตามเนื้อหาในเฉลย",
+            student_answer=student_text,
+            subject_id=subject_id,
+            question_id=question_id
+        )
 
     def _get_structured_evaluation_prompt(self, question: str, student_answer: str) -> str:
         """สร้าง Prompt ที่บังคับ Output เป็น JSON"""
@@ -137,13 +184,13 @@ class LlamaIndexService:
             if json_match:
                 return json.loads(json_match.group())
             return json.loads(response_text)
-        except Exception as e:
-            print(f"Error parsing JSON: {e}")
-            return {{
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON response from LLM: {e}")
+            return {
                 "evaluation_text": "เกิดข้อผิดพลาดในการประมวลผลคะแนน",
                 "total_score": 0.0,
                 "normalized_score": 0.0,
                 "details": [],
                 "correct_points": [],
                 "missing_points": []
-            }}
+            }
